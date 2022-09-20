@@ -4,17 +4,17 @@ The purpose of this project is to build congestion control testbed based on the 
 
 # instructions
 
-###1. Install
+### 1. Install
 
-####[V2X Simulator based on ns-3](https://github.com/sangmosung/path-loss_simulator)
+#### [V2X Simulator based on ns-3](https://github.com/sangmosung/path-loss_simulator)
 
-###2. Move  
+### 2. Move  
 
-####wave-80211p.cc to scratch folder
+#### wave-80211p.cc to scratch folder
 
-###3. Execute
+### 3. Execute
 
-####./waf --run wave-80211p.cc
+#### ./waf --run wave-80211p.cc
 
 
 # Contributors
