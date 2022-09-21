@@ -19,7 +19,7 @@ The purpose of this project is to build congestion control testbed based on the 
 
 # Contributors
 
-Sangmo Sung, Yeongbin Cho, Taekyeong Kim 
+Sangmo Sung, Yeongbin Jo, Taekyeong Kim 
 
 # Contact
 
