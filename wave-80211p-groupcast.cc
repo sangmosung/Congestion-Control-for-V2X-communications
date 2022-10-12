@@ -89,6 +89,72 @@ NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
 
 // PVD
 
+int congestion_level(double cbr, double itt) // cbr => 0 ~ 1, itt => 0.1 ~ 0.6 
+{
+  int level;
+  if(cbr>1 | itt>0.6)
+    level = 5;
+  else if(cbr>0.8 | itt > 0.5)
+    level = 5;
+  else if(cbr>0.6 | itt > 0.4)
+    level = 4;
+  else if(cbr>0.4 | itt > 0.3)
+    level = 3;
+  else if(cbr>0.2 | itt > 0.2)
+    level = 2;
+  else
+    level =1;
+  return level;
+}
+
+
+
+// Write the code based on paper
+double CBR_calculation(int num_node, int cm, double itt) // casting method(cm)
+{
+  double cbr;
+  double pred_itt;
+  switch(cm)
+  {
+    case 0: // broadcast
+         if(num_node>50)
+            {
+              pred_itt = 0.005; // 제대로 조사!
+              cbr = num_node*pred_itt/itt;
+            }
+         else if(num_node>20 && num_node<50)
+            {
+              pred_itt = 0.002; // 제대로 조사!
+              cbr = num_node*pred_itt/itt;
+            }
+         else
+            {
+              pred_itt = 0.001; // 제대로 조사!
+              cbr = num_node*pred_itt/itt; 
+            }
+    case 1: // groupcast
+         if(num_node>50)
+            {
+              pred_itt = 0.005; // 제대로 조사!
+              cbr = num_node*pred_itt/itt;
+            }
+         else if(num_node>20 && num_node<50)
+            {
+              pred_itt = 0.002; // 제대로 조사!
+              cbr = num_node*pred_itt/itt;
+            }
+         else
+            {
+              pred_itt = 0.001; // 제대로 조사!
+              cbr = num_node*pred_itt/itt; 
+            }
+    case 2: // unicast
+          pred_itt = 0.001; // 제대로 조사!
+          cbr = num_node*pred_itt/itt; 
+  }
+  return cbr;
+}
+
 double ITT_calculation (int VD)
 {
   double itt;
@@ -246,7 +312,7 @@ while(m<1)
   {
   for(int i=1; i<MAX_NODE; i++)
     {
-      if(i%20==0)
+      if(i%10==0)
       {
         InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), i);
         Ptr<Socket> source = Socket::CreateSocket (c.Get (i), tid);
