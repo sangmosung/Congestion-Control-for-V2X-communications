@@ -20,13 +20,22 @@ float mod_ITT (float ITT) {
 
     X = CBR * VD;
 
+    int congestion_level;
     if (X <= 6.5) {
+        congestion_level = 1;
+        printf("congestion_level: %d", congestion_level);
         return a = 0.1;
     } else if (6.5 < X <= 14) {
+        congestion_level = 2;
+        printf("congestion_level: %d", congestion_level);
         return a = 0.334;
     } else if (14 < X <= 25.5) {
+        congestion_level = 3;
+        printf("congestion_level: %d", congestion_level);
         return a = 0.5;
     } else {
+        congestion_level = 4;
+        printf("congestion_level: %d", congestion_level);
         return a = 1;
     };
 
