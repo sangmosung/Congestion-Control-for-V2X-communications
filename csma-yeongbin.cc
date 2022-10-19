@@ -69,20 +69,25 @@ int main (int argc, char *argv[])
   NS_LOG_INFO ("Create nodes.");
   NodeContainer c;
   c.Create (100);
-  // NodeContainer c0 = NodeContainer (c.Get (0), c.Get (1));
-  // NodeContainer c1 = NodeContainer (c.Get (0), c.Get (2));
-  NodeContainer c1 = NodeContainer (c,1,100);
-  // NodeContainer c2 = NodeContainer::Add(c.Get(0));
-  // NodeContainer c2 = NodeContainer::Add(c.Get(1));
-  NodeContainer c2 = NodeContainer(c, 2 ,100);
+  NodeContainer c1 = NodeContainer (c,0,25);
+  NodeContainer c2 = NodeContainer(c, 25, 50);
+  NodeContainer c3 = NodeContainer(c, 50, 75);
+  NodeContainer c4 = NodeContainer(c, 75, 100);
+  NodeContainer c12 = NodeContainer(c, 0, 50);
+  NodeContainer c34 = NodeContainer(c, 50, 100);
+  NodeContainer c1234 = NodeContainer(c, 0, 100);
+
   NS_LOG_INFO ("Build Topology.");
   CsmaHelper csma;
   csma.SetChannelAttribute ("DataRate", DataRateValue (DataRate (5000000)));
-  csma.SetChannelAttribute ("Delay", TimeValue (MilliSeconds (2)));
-
-  // NetDeviceContainer n0 = csma.Install (c0);
-  NetDeviceContainer n0 = csma.Install (c2);
+  csma.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (5)));
+  NetDeviceContainer n2 = csma.Install (c2);
   NetDeviceContainer n1 = csma.Install (c1);
+  NetDeviceContainer n3 = csma.Install (c3);
+  NetDeviceContainer n4 = csma.Install (c4);
+  NetDeviceContainer n12 = csma.Install (c12);
+  NetDeviceContainer n34 = csma.Install (c34);
+  NetDeviceContainer n1234 = csma.Install (c1234);
 
 
   MobilityHelper mobility;
@@ -90,7 +95,7 @@ int main (int argc, char *argv[])
   for(int i =0; i<10; i++)
   {
     for(int j=0;j<10;j++)
-      positionAlloc->Add (Vector (0.2*j, 0.2*(i+1), 0.0));
+      positionAlloc->Add (Vector (1*j, 1*(i+1), 0.0));
   }
   mobility.SetPositionAllocator (positionAlloc);  
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
@@ -103,11 +108,21 @@ int main (int argc, char *argv[])
 
   NS_LOG_INFO ("Assign IP Addresses.");
   Ipv4AddressHelper ipv4;
-  ipv4.SetBase ("10.1.0.0", "255.255.255.0");
-  ipv4.Assign (n0);
-  ipv4.SetBase ("192.168.1.0", "255.255.255.0");
-  ipv4.Assign (n1);
-
+  // ipv4.SetBase ("192.168.1.0", "255.255.255.0");
+  // ipv4.Assign (n1);
+  // ipv4.SetBase ("10.1.0.0", "255.255.255.0");
+  // ipv4.Assign (n2);
+  // ipv4.SetBase ("10.1.1.0", "255.255.255.0");
+  // ipv4.Assign (n3);
+  // ipv4.SetBase ("10.1.2.0", "255.255.255.0");
+  // ipv4.Assign (n4);
+  // ipv4.SetBase ("10.1.3.0", "255.255.255.0");
+  // ipv4.Assign (n12);
+  // ipv4.SetBase ("10.1.4.0", "255.255.255.0");
+  // ipv4.Assign (n34);
+  ipv4.SetBase ("10.1.5.0", "255.255.255.0");
+  ipv4.Assign (n1234);
+  
 
   // RFC 863 discard port ("9") indicates packet should be thrown away
   // by the system.  We allow this silent discard to be overridden
@@ -116,99 +131,57 @@ int main (int argc, char *argv[])
 
   // Create the OnOff application to send UDP datagrams of size
   // 512 bytes (default) at a rate of 500 Kb/s (default) from n0
-  NS_LOG_INFO ("Create Applications.");
-  for(int i =1; i <10 ; i++)
-  {
-    if(i < 50 && i >1)
-    {
-      OnOffHelper onoff ("ns3::UdpSocketFactory", 
-                        Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port+i)));
-      onoff.SetConstantRate (DataRate ("500kb/s"));
-
-      // ApplicationContainer app = onoff.Install (c0.Get (0));
-      ApplicationContainer app = onoff.Install (c2.Get (i));
-      // Start the application
-      app.Start (Seconds (1.0));
-      app.Stop (Seconds (10.0));
-
-      // Create an optional packet sink to receive these packets
-      PacketSinkHelper sink ("ns3::UdpSocketFactory",
-                            Address (InetSocketAddress (Ipv4Address::GetAny (), port+i)));
-      // app = sink.Install (c0.Get (1));
-      app = sink.Install (c2.Get (1));
-      app.Add (sink.Install (c1.Get (1)));
-      app.Start (Seconds (1.0));
-      app.Stop (Seconds (10.0));
-    }
-  }
-
-  for(int i =1; i <10 ; i++)
-  {
-    if(i < 50 && i >1)
-    {
-      OnOffHelper onoff1 ("ns3::UdpSocketFactory", 
-                        Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port+10+i)));
-      onoff1.SetConstantRate (DataRate ("500kb/s"));
-
-      // ApplicationContainer app = onoff.Install (c0.Get (0));
-      ApplicationContainer app1 = onoff1.Install (c2.Get (i+10));
-      // Start the application
-      app1.Start (Seconds (1.0));
-      app1.Stop (Seconds (10.0));
-
-      // Create an optional packet sink to receive these packets
-      PacketSinkHelper sink1 ("ns3::UdpSocketFactory",
-                            Address (InetSocketAddress (Ipv4Address::GetAny (), port+10+i)));
-      // app = sink.Install (c0.Get (1));
-      app1 = sink1.Install (c2.Get (1));
-      app1.Add (sink1.Install (c1.Get (1)));
-      app1.Start (Seconds (1.0));
-      app1.Stop (Seconds (10.0));
-    }
-  }
-  // OnOffHelper onoff1 ("ns3::UdpSocketFactory", 
-  //                    Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port+1)));
-  // onoff1.SetConstantRate (DataRate ("500kb/s"));
-  // ApplicationContainer app1 = onoff1.Install (c2.Get (2));
-  // // Start the application
-  // app1.Start (Seconds (1.0));
-  // app1.Stop (Seconds (10.0));
-
-  // // Create an optional packet sink to receive these packets
-  // PacketSinkHelper sink1 ("ns3::UdpSocketFactory",
-  //                        Address (InetSocketAddress (Ipv4Address::GetAny (), port+1)));
-  // // app = sink.Install (c0.Get (1));
-  // app1 = sink1.Install (c2.Get (1));
-  // app1.Add (sink1.Install (c1.Get (1)));
-  // app1.Start (Seconds (1.0));
-  // app1.Stop (Seconds (10.0));
-
-  // for(int i=0; i<100; i++)
+  // NS_LOG_INFO ("Create Applications.");
+  // for(int i =1; i <10 ; i++)
   // {
-  //   ApplicationContainer app = onoff.Install (c2.Get (i));
-  //   // Start the application
-  //   app.Start (Seconds (1.0));
-  //   app.Stop (Seconds (10.0));
+  //   if(i < 50 && i >1)
+  //   {
+  //     OnOffHelper onoff ("ns3::UdpSocketFactory", 
+  //                       Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port+i)));
+  //     onoff.SetConstantRate (DataRate ("500kb/s"));
 
-  //   // Create an optional packet sink to receive these packets
-  //   PacketSinkHelper sink ("ns3::UdpSocketFactory",
-  //                         Address (InetSocketAddress (Ipv4Address::GetAny (), port)));
-  //   // app = sink.Install (c0.Get (1));
-  //   if(i<51)
-  //   {
-  //   app = sink.Install (c2.Get (i+1));
-  //   app.Add (sink.Install (c1.Get (i+1)));
-  //   app.Start (Seconds (1.0));
-  //   app.Stop (Seconds (10.0));
-  //   }
-  //   else
-  //   {
-  //   app = sink.Install (c2.Get (i-1));
-  //   app.Add (sink.Install (c1.Get (i-1)));
-  //   app.Start (Seconds (1.0));
-  //   app.Stop (Seconds (10.0));  
+  //     // ApplicationContainer app = onoff.Install (c0.Get (0));
+  //     ApplicationContainer app = onoff.Install (c2.Get (i));
+  //     // Start the application
+  //     app.Start (Seconds (1.0));
+  //     app.Stop (Seconds (5.0));
+
+  //     // Create an optional packet sink to receive these packets
+  //     PacketSinkHelper sink ("ns3::UdpSocketFactory",
+  //                           Address (InetSocketAddress (Ipv4Address::GetAny (), port+i)));
+  //     // app = sink.Install (c0.Get (1));
+  //     app = sink.Install (c2.Get (1));
+  //     // app.Add (sink.Install (c1.Get (1)));
+  //     app.Start (Seconds (1.0));
+  //     app.Stop (Seconds (5.0));
   //   }
   // }
+  NS_LOG_INFO ("Create Applications.");
+  
+  for(int i = 0; i <100; i++)
+  {
+    OnOffHelper onoff1 ("ns3::UdpSocketFactory", 
+                      Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port)));
+    onoff1.SetConstantRate (DataRate ("500Kb/s"));
+
+
+
+    ApplicationContainer app1 = onoff1.Install (c1234.Get (i));
+
+
+    app1.Start (Seconds (5.0));
+    app1.Stop (Seconds (10.0));
+    // Start the application
+
+    // // Create an optional packet sink to receive these packets
+    // PacketSinkHelper sink1 ("ns3::UdpSocketFactory",
+    //                       Address (InetSocketAddress (Ipv4Address::GetAny (), port)));
+    // // app = sink.Install (c0.Get (1));
+    // app1 = sink1.Install (c1234.Get (i));
+    // // app1.Add (sink1.Install (c1.Get (1)));
+    // app1.Start (Seconds (5.0));
+    // app1.Stop (Seconds (10.0));
+  }
 
   // Configure ascii tracing of all enqueue, dequeue, and NetDevice receive 
   // events on all devices.  Trace output will be sent to the file 
