@@ -157,13 +157,13 @@ int main (int argc, char *argv[])
   //   }
   // }
   NS_LOG_INFO ("Create Applications.");
-  
+  //50번만 가야함 5초동안 0.1초에 한 번
   for(int i = 0; i <100; i++)
   {
     OnOffHelper onoff1 ("ns3::UdpSocketFactory", 
                       Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port)));
-    onoff1.SetConstantRate (DataRate ("500Kb/s"));
-
+    onoff1.SetConstantRate (DataRate ("10Kb/s"),125);
+    
 
 
     ApplicationContainer app1 = onoff1.Install (c1234.Get (i));
@@ -187,10 +187,10 @@ int main (int argc, char *argv[])
   // events on all devices.  Trace output will be sent to the file 
   // "csma-one-subnet.tr"
   AsciiTraceHelper ascii;
-  csma.EnableAsciiAll (ascii.CreateFileStream ("csma-broadcast.tr"));
+  csma.EnableAsciiAll (ascii.CreateFileStream ("CSMA.tr"));
 
   // Also configure some tcpdump traces; each interface will be traced
-  // The output files will be named 
+  // The output files will be named
   // csma-broadcast-<nodeId>-<interfaceId>.pcap
   // and can be read by the "tcpdump -tt -r" command 
   csma.EnablePcapAll ("csma-broadcast", false);
@@ -198,6 +198,7 @@ int main (int argc, char *argv[])
   NS_LOG_INFO ("Run Simulation.");
   
   AnimationInterface anim (animFile);
+  anim.SetMaxPktsPerTraceFile(500000);
   Simulator::Run ();
   std::cout << "Animation Trace file created:" << animFile.c_str ()<< std::endl;
   Simulator::Destroy ();
