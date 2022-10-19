@@ -68,14 +68,14 @@ int main (int argc, char *argv[])
   cmd.Parse (argc, argv);
   NS_LOG_INFO ("Create nodes.");
   NodeContainer c;
-  c.Create (100);
+  c.Create (300);
   NodeContainer c1 = NodeContainer (c,0,25);
   NodeContainer c2 = NodeContainer(c, 25, 50);
   NodeContainer c3 = NodeContainer(c, 50, 75);
   NodeContainer c4 = NodeContainer(c, 75, 100);
   NodeContainer c12 = NodeContainer(c, 0, 50);
   NodeContainer c34 = NodeContainer(c, 50, 100);
-  NodeContainer c1234 = NodeContainer(c, 0, 100);
+  NodeContainer c1234 = NodeContainer(c, 0, 300);
 
   NS_LOG_INFO ("Build Topology.");
   CsmaHelper csma;
@@ -94,7 +94,7 @@ int main (int argc, char *argv[])
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
   for(int i =0; i<10; i++)
   {
-    for(int j=0;j<10;j++)
+    for(int j=0;j<30;j++)
       positionAlloc->Add (Vector (1*j, 1*(i+1), 0.0));
   }
   mobility.SetPositionAllocator (positionAlloc);  
@@ -120,7 +120,7 @@ int main (int argc, char *argv[])
   // ipv4.Assign (n12);
   // ipv4.SetBase ("10.1.4.0", "255.255.255.0");
   // ipv4.Assign (n34);
-  ipv4.SetBase ("10.1.5.0", "255.255.255.0");
+  ipv4.SetBase ("10.0.0.0","255.0.0.0");
   ipv4.Assign (n1234);
   
 
@@ -158,16 +158,16 @@ int main (int argc, char *argv[])
   // }
   NS_LOG_INFO ("Create Applications.");
   //50번만 가야함 5초동안 0.1초에 한 번
-  for(int i = 0; i <100; i++)
+  for(int i = 0; i <300; i++)
   {
     OnOffHelper onoff1 ("ns3::UdpSocketFactory", 
                       Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port)));
-    onoff1.SetConstantRate (DataRate ("10Kb/s"),125);
+    // 10Kb/s , 125 => 0.1s
+    // 1Kb = 1000bit = 125 byte
     
-
-
+    onoff1.SetConstantRate (DataRate ("8Kb/s"),200);
+    
     ApplicationContainer app1 = onoff1.Install (c1234.Get (i));
-
 
     app1.Start (Seconds (5.0));
     app1.Stop (Seconds (10.0));
