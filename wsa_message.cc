@@ -98,7 +98,7 @@ NS_LOG_COMPONENT_DEFINE ("FirstScriptExample");
  * MAC class that enables OCB mode.
  */
 
-
+// receive ITT from buffer of WSA message
 void ReceivePacket_WSA (Ptr<Socket> socket)
 {
  Address from;
@@ -109,7 +109,7 @@ void ReceivePacket_WSA (Ptr<Socket> socket)
  NS_LOG_INFO ("RSU > OBU Received " << buf);
 }
 
-// // send WSA message with ITT in buffer
+// send WSA message with ITT in buffer
 static void SendWSA_ITT (Ptr<Socket> socket, uint32_t pktSize,
                          uint32_t pktCount, Time pktInterval)
 {
