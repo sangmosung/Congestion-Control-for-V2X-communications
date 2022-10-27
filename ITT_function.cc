@@ -1,40 +1,35 @@
 #include <stdio.h>
 
-// groupcast의 Itt를 가져온다. 
-// TODO: ITT값을 기존의 코드에서 어떤것으로 넣어야 할지 결정해야 한다. 
-float mod_ITT (float ITT) {
+// DCIB = Duration Channel Indicated as Busy, according to SAE J2945
+// mod_ITT = modified ITT
+// VD = vehicle density, all OBU
+// DCIB는 첫번째 노드가 BSM을 보낸 이후 -> 마지막 노드의 BSM을 수신했을 때의 시간
+float mod_ITT (float DCIB, int VD) {
 
     // 내부에서 정의되어야 하는 함수는 CBR, VD, X의 값이다.
-    float CBR;
-    int VD = vechicle_density;
-    float X;  // X = CBR x VD
-    float a;  // a는 변경된 ITT의 값(최종 출력할 숫자)
-
-    // CBR = 메시지를 전부 보내는 시간 / 1초(설정된 관측시간)
-    // TODO: 메시지 보내는 시간 어떤것을 받아올 것인지?, 관측시간은 1초로 설정하면 괜찮은지 확인 필요
-    CBR = ITT / 1;
-
-    // // 한 그룹내의 차량 대수 or 총 차량 대수(10~30)
-    // // TODO: 차량 대수를 결정하는 함수를 어떤것을 받아올 것인가?
-    // VD = (MAX_NODE - 1);  //  RSU node 1대 제외
-
-    X = CBR * VD;
+    float vCBPMeasInt = 0.1; // according to SAE J2945
+    float CBR = DCIB / vCBPMeasInt; // CBR = 0 ~ 1s
+    float a;  // a = mod_ITT
 
     int congestion_level;
-    if (X <= 6.5) {
+    if (CBR <= 0.2 || VD <= 100) {
         congestion_level = 1;
         printf("congestion_level: %d", congestion_level);
         return a = 0.1;
-    } else if (6.5 < X <= 14) {
+    } else if (0.2 < CBR <= 0.4 || 100 < VD <= 200) {
         congestion_level = 2;
         printf("congestion_level: %d", congestion_level);
         return a = 0.334;
-    } else if (14 < X <= 25.5) {
+    } else if (0.4 < CBR <= 0.6 || 300 < VD <= 400) {
         congestion_level = 3;
         printf("congestion_level: %d", congestion_level);
         return a = 0.5;
-    } else {
+    } else if (0.6 < CBR <= 0.8 || 400 < VD <= 500) {
         congestion_level = 4;
+        printf("congestion_level: %d", congestion_level);
+        return a = 0.5;
+    } else {
+        congestion_level = 5;
         printf("congestion_level: %d", congestion_level);
         return a = 1;
     };
