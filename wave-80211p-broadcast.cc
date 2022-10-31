@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received time_diff copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
@@ -22,11 +22,11 @@
  */
 /**
  * This example shows basic construction of an 802.11p node.  Two nodes
- * are constructed with 802.11p devices, and by default, one node sends a single
+ * are constructed with 802.11p devices, and by default, one node sends time_diff single
  * packet to another node (the number of packets and interval between
  * them can be configured by command-line arguments).  The example shows
  * typical usage of the helper classes for this mode of WiFi (where "OCB" refers
- * to "Outside the Context of a BSS")."
+ * to "Outside the Context of time_diff BSS")."
  */
 
 #include "ns3/vector.h"
@@ -67,14 +67,16 @@ using std::to_string;
 typedef struct {
   float time = 0;
   float prev_time = 0;
-  int num = 0;
-  int rep_num = 0;
+  int cycle_num = 0;
+  int start_time_num = 0;
 }RSU;
 
-#define OBU_NODE 200
+#define OBU_NODE 20
 #define RSU_NODE 1
 #define ROW_LINE 10
-
+#define TOTAL_TIME 100
+#define BSM_PACKET_SIZE 200
+#define BYTE_SIZE 8
 NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
 
 /*
@@ -93,42 +95,42 @@ NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
  *  Wifi80211pHelper wifi80211p = Wifi80211pHelper::Default ();
  *  devices = wifi80211p.Install (wifiPhy, wifi80211pMac, nodes);
  *
- * The reason of not providing a 802.11p class is that most of modeling
- * 802.11p standard has been done in wifi module, so we only need a high
+ * The reason of not providing time_diff 802.11p class is that most of modeling
+ * 802.11p standard has been done in wifi module, so we only need time_diff high
  * MAC class that enables OCB mode.
  */
-unsigned char recv_buffer[100];
-unsigned char recv_buffer2[100];
-unsigned char send_buffer[100];
-Ptr<Packet> packet_0;
-Ptr<Packet> packet_1;
-std::string f;
-std::string b;
-float a;
+unsigned char recv_wsa_packet[100];
+unsigned char recv_pvd_packet[100];
+Ptr<Packet> send_wsa_packet;
+Ptr<Packet> send_pvd_packet;
+std::string recv_itt_data;
+std::string send_itt_data;
+float time_diff;
 int number = 0;
 int j_num =0;
+
 // PVD
 void ReceivePacket_PVD (Ptr<Socket> socket)
 {
   
-  while (socket->Recv (recv_buffer2,12,0))
+  while (socket->Recv (recv_pvd_packet,12,0))
     {
       string st = "";
       for(int i = 0 ; i<12 ; i++)
-        st += recv_buffer2[i];
+        st += recv_pvd_packet[i];
        
     }
 }
 
 void ReceivePacket_From_WSA (Ptr<Socket> socket)
 {
-  // printf("출력: %s \n", recv_buffer);
+  // printf("출력: %s \n", recv_wsa_packet);
   
-  while (socket->Recv (recv_buffer,7,0))
+  while (socket->Recv (recv_wsa_packet,7,0))
     {
-      f = "";
+      recv_itt_data = "";
       for(int i = 0 ; i<7 ; i++)
-        f += recv_buffer[i];
+        recv_itt_data += recv_wsa_packet[i];
     }
 }
 RSU rsu;
@@ -138,67 +140,67 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
   while (socket->Recv ())
     {
       // std::cout << Simulator::Now ().GetSeconds () << "초: 도착시간: " << std::endl;
-      if(rsu.num==0)
+      if(rsu.cycle_num==0)
       {
           rsu.prev_time = Simulator::Now ().GetSeconds ();
           printf("hello\n");
       }
-      else if (rsu.num == OBU_NODE-1)
+      else if (rsu.cycle_num == OBU_NODE-1)
       {
           rsu.time = Simulator::Now ().GetSeconds ();
           std::cout << Simulator::Now ().GetSeconds () << "초: 도착시간: "<< rsu.time - rsu.prev_time << std::endl;
-          a = rsu.time - rsu.prev_time;
+          time_diff = rsu.time - rsu.prev_time;
 
-          // std::cout << f << std::endl;
-          char abc[2];
-          abc[0] = f[0];
-          abc[1] = f[1];
-          int num1 = (abc[0]-'0')*10+(abc[1]-'0');
-          // std::cout << abc << std::endl;
-          // std::cout << "hi:"<<num1 << std::endl;
-          float c;
+          // std::cout << recv_itt_data << std::endl;
+          char itt_char[2];
+          itt_char[0] = recv_itt_data[0];
+          itt_char[1] = recv_itt_data[1];
+          int prev_itt = (itt_char[0]-'0')*10+(itt_char[1]-'0');
+          // std::cout << itt_char << std::endl;
+          // std::cout << "hi:"<<prev_itt << std::endl;
+          float cbr;
           if(j_num ==0)
-            c = a/0.1*100;
+            cbr = time_diff/0.1*100;
           else
-            c = (a)*(num1*10)/16*100;
+            cbr = (time_diff)*(prev_itt*1000)/(BSM_PACKET_SIZE*BYTE_SIZE)*100;
           
-          std::cout << "CBR: "<< c  << "%"<< std::endl;
+          std::cout << "CBR: "<< cbr  << "%"<< std::endl;
 
-          // printf("CBR: %.2f %\n",c);
-          if(c!= 0 && c >100 && c<110) // 0.107
-            b = "15Kb/s";
-          else if(c!=0 && c>110 && c<120) // 0.114
-            b = "14Kb/s";
-          else if(c!=0 && c>120 && c<130) // 0.123
-            b = "13Kb/s";
-          else if(c!=0 && c>130 && c<140) // 0.133
-            b = "12Kb/s";
-          else if(c!=0 && c>140 && c<150) // 0.145
-            b = "11Kb/s";
-          else if(c!=0 && c>150) // 0.16
-            b = "10Kb/s";
-          else if(c!=0 && c>90 && c<100) // 0.1
-            b = "16Kb/s";
-          else if(c!=0 && c>80 && c<90) // 0.094
-            b = "17Kb/s";
-          else if(c!=0 && c>70 && c<80) // 0.089
-            b = "18Kb/s";
-          else if(c!=0 && c>60 && c<70) // 0.084
-            b = "19Kb/s";
-          else if(c!=0 && c<60) // 0.08
-            b = "20Kb/s";
-          uint8_t* packet_buffer = (uint8_t*)(&b);
-          packet_0 = Create<Packet> (packet_buffer,200);
+          // printf("CBR: %.2f %\n",cbr);
+          if(cbr!= 0 && cbr >100 && cbr<110) // 0.107
+            send_itt_data = "15Kb/s";
+          else if(cbr!=0 && cbr>110 && cbr<120) // 0.114
+            send_itt_data = "14Kb/s";
+          else if(cbr!=0 && cbr>120 && cbr<130) // 0.123
+            send_itt_data = "13Kb/s";
+          else if(cbr!=0 && cbr>130 && cbr<140) // 0.133
+            send_itt_data = "12Kb/s";
+          else if(cbr!=0 && cbr>140 && cbr<150) // 0.145
+            send_itt_data = "11Kb/s";
+          else if(cbr!=0 && cbr>150) // 0.16
+            send_itt_data = "10Kb/s";
+          else if(cbr!=0 && cbr>90 && cbr<100) // 0.1
+            send_itt_data = "16Kb/s";
+          else if(cbr!=0 && cbr>80 && cbr<90) // 0.094
+            send_itt_data = "17Kb/s";
+          else if(cbr!=0 && cbr>70 && cbr<80) // 0.089
+            send_itt_data = "18Kb/s";
+          else if(cbr!=0 && cbr>60 && cbr<70) // 0.084
+            send_itt_data = "19Kb/s";
+          else if(cbr!=0 && cbr<60) // 0.08
+            send_itt_data = "20Kb/s";
+          uint8_t* packet_buffer = (uint8_t*)(&send_itt_data);
+          send_wsa_packet = Create<Packet> (packet_buffer,200);
       }
-      rsu.num++;
+      rsu.cycle_num++;
 
-      for(int i =0; i <10 ; i++)
+      for(int i =0; i <TOTAL_TIME ; i++)
       {
-        if(j_num ==i && rsu.rep_num == i)
+        if(j_num ==i && rsu.start_time_num == i)
         { 
-          rsu.num=1;
+          rsu.cycle_num=1;
           rsu.prev_time = Simulator::Now ().GetSeconds ();  
-          rsu.rep_num += 1;
+          rsu.start_time_num += 1;
         }
       }
     }
@@ -224,24 +226,20 @@ static void GenerateTraffic (Ptr<Socket> socket, Ptr<Packet> packet,
   if (pktCount > 0)
     {
       
-      // std::cout << a << std::endl;
-      // string a_string(std::to_string(a));
+      // std::cout << time_diff << std::endl;
+      // string a_string(std::to_string(time_diff));
       // std::cout << a_string << std::endl;
       uint8_t packet_buffer[7];
       
-      std::copy(b.begin(), b.end(), std::begin(packet_buffer));
+      std::copy(send_itt_data.begin(), send_itt_data.end(), std::begin(packet_buffer));
 
-      // for(int i=0 ; i< 10;i++)
-      // {
-      //   printf("%c", packet_buffer[i]);
-      // }
       packet = Create<Packet> (packet_buffer,7);
       
       // socket->Send (Create<Packet> (pktSize));
       socket->Send(packet);
       string WSA = "RSU send WSA message as broadcast";
       NS_LOG_UNCOND (WSA);
-      std::cout << Simulator::Now ().GetSeconds () << "초에 전송주기" << b << "을 담은 패킷이 전송되었습니다." << std::endl;
+      std::cout << Simulator::Now ().GetSeconds () << "초에 전송주기" << send_itt_data << "을 담은 패킷이 전송되었습니다." << std::endl;
       printf("\n");
       Simulator::Schedule (pktInterval, &GenerateTraffic,
                            socket, packet,pktCount - 1, pktInterval);
@@ -273,7 +271,7 @@ int main (int argc, char *argv[])
   // Convert to time object
   Time interPacketInterval = Seconds (interval);
 
-  for(int j = 0 ; j<50; j++)
+  for(int j = 0 ; j<TOTAL_TIME; j++)
   {
   j_num = j;
   NodeContainer c;
@@ -284,7 +282,7 @@ int main (int argc, char *argv[])
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
   Ptr<YansWifiChannel> channel = wifiChannel.Create ();
   wifiPhy.SetChannel (channel);
-  // ns-3 supports generate a pcap trace
+  // ns-3 supports generate time_diff pcap trace
   wifiPhy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11);
   NqosWaveMacHelper wifi80211pMac = NqosWaveMacHelper::Default ();
   Wifi80211pHelper wifi80211p = Wifi80211pHelper::Default ();
@@ -360,7 +358,7 @@ int main (int argc, char *argv[])
         
       Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
                                       Seconds (j+1), &GenerateTraffic,
-                                      source, packet_0, numPackets, interPacketInterval);
+                                      source, send_wsa_packet, numPackets, interPacketInterval);
   
   uint16_t port = 9;
   NS_LOG_INFO ("Create Applications.");
@@ -372,12 +370,12 @@ int main (int argc, char *argv[])
     // 1Kb = 1000bit = 125 byte
     // 16Kb = 16000bit = 2000 byte
     char itt[7];
-    strcpy(itt,f.c_str());
+    strcpy(itt,recv_itt_data.c_str());
     if(j!=0)
-      onoff.SetConstantRate (DataRate (itt),200);
+      onoff.SetConstantRate (DataRate (itt),BSM_PACKET_SIZE);
 
     else
-      onoff.SetConstantRate (DataRate ("16Kb/s"),200);
+      onoff.SetConstantRate (DataRate ("16Kb/s"),BSM_PACKET_SIZE);
 
     ApplicationContainer app = onoff.Install (c1.Get (i));
     // RSU가 측정하는 부분
@@ -393,12 +391,12 @@ int main (int argc, char *argv[])
   
   for(int i=1; i<OBU_NODE+RSU_NODE; i++)
     {
-      string PVD_message = "buffer_size_12";
+      string PVD_message = "car_info";
       uint8_t PVD_buffer[15];
       
       std::copy(PVD_message.begin(), PVD_message.end(), std::begin(PVD_buffer));
 
-      packet_1 = Create<Packet> (PVD_buffer,8);
+      send_pvd_packet = Create<Packet> (PVD_buffer,8);
       InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), i+100);
       Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid);
       InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), i+100);
@@ -410,7 +408,7 @@ int main (int argc, char *argv[])
       // NS_LOG_UNCOND (source->GetNode ()->GetId ());   
       Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
                               Seconds (j+1+i/(OBU_NODE)), &GenerateTraffic_PVD,
-                              source, packet_1, numPackets, interPacketInterval);
+                              source, send_pvd_packet, numPackets, interPacketInterval);
     }
 
 
@@ -431,7 +429,7 @@ int main (int argc, char *argv[])
   // std::cout << "Animation Trace file created:" << animFile.c_str ()<< std::endl;
   Simulator::Destroy ();
   }
-  // std::cout << "What is the f: " << f << std::endl;
+  // std::cout << "What is the recv_itt_data: " << recv_itt_data << std::endl;
   
 
   return 0;
