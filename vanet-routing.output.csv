@@ -1,0 +1,11 @@
+SimulationSecond,ReceiveRate,PacketsReceived,NumberOfSinks,RoutingProtocol,TransmissionPower,WavePktsSent,WavePtksReceived,WavePktsPpr,ExpectedWavePktsReceived,ExpectedWavePktsInCoverageReceived,MacPhyOverhead
++0s,0,0,10,protocol,7.5,0,0,0,0,0,0
++1s,0,0,10,protocol,7.5,0,0,0,0,0,1
++2s,2.048,4,10,protocol,7.5,400,1069,2.6725,286,277,0.308575
++3s,2.56,5,10,protocol,7.5,400,1123,2.8075,358,350,0.314544
++4s,2.048,4,10,protocol,7.5,400,1164,2.91,334,329,0.321203
++5s,2.048,4,10,protocol,7.5,400,1089,2.7225,348,344,0.310011
++6s,2.048,4,10,protocol,7.5,400,1094,2.735,282,277,0.302926
++7s,3.584,7,10,protocol,7.5,400,1003,2.5075,262,255,0.31247
++8s,4.096,8,10,protocol,7.5,400,1019,2.5475,232,230,0.313361
++9s,4.096,8,10,protocol,7.5,400,987,2.4675,232,209,0.313002
