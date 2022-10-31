@@ -71,7 +71,7 @@ typedef struct {
   int rep_num = 0;
 }RSU;
 
-#define OBU_NODE 100
+#define OBU_NODE 200
 #define RSU_NODE 1
 #define ROW_LINE 10
 
@@ -106,7 +106,7 @@ std::string f;
 std::string b;
 float a;
 int number = 0;
-
+int j_num =0;
 // PVD
 void ReceivePacket_PVD (Ptr<Socket> socket)
 {
@@ -137,6 +137,7 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
 {
   while (socket->Recv ())
     {
+      // std::cout << Simulator::Now ().GetSeconds () << "초: 도착시간: " << std::endl;
       if(rsu.num==0)
       {
           rsu.prev_time = Simulator::Now ().GetSeconds ();
@@ -147,8 +148,23 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
           rsu.time = Simulator::Now ().GetSeconds ();
           std::cout << Simulator::Now ().GetSeconds () << "초: 도착시간: "<< rsu.time - rsu.prev_time << std::endl;
           a = rsu.time - rsu.prev_time;
-          float c = a/0.1*100;
-          printf("%f\n",c);
+
+          // std::cout << f << std::endl;
+          char abc[2];
+          abc[0] = f[0];
+          abc[1] = f[1];
+          int num1 = (abc[0]-'0')*10+(abc[1]-'0');
+          // std::cout << abc << std::endl;
+          // std::cout << "hi:"<<num1 << std::endl;
+          float c;
+          if(j_num ==0)
+            c = a/0.1*100;
+          else
+            c = (a)*(num1*10)/16*100;
+          
+          std::cout << "CBR: "<< c  << "%"<< std::endl;
+
+          // printf("CBR: %.2f %\n",c);
           if(c!= 0 && c >100 && c<110) // 0.107
             b = "15Kb/s";
           else if(c!=0 && c>110 && c<120) // 0.114
@@ -175,15 +191,10 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
           packet_0 = Create<Packet> (packet_buffer,200);
       }
       rsu.num++;
-      if(Simulator::Now ().GetSeconds () >1 && rsu.rep_num ==0)
-      {
-        rsu.num=1;
-        rsu.prev_time = Simulator::Now ().GetSeconds ();
-        rsu.rep_num += 1;
-      }
+
       for(int i =0; i <10 ; i++)
       {
-        if(Simulator::Now ().GetSeconds () >1+i && rsu.rep_num == i)
+        if(j_num ==i && rsu.rep_num == i)
         { 
           rsu.num=1;
           rsu.prev_time = Simulator::Now ().GetSeconds ();  
@@ -262,8 +273,9 @@ int main (int argc, char *argv[])
   // Convert to time object
   Time interPacketInterval = Seconds (interval);
 
-  for(int j = 0 ; j<10; j++)
+  for(int j = 0 ; j<50; j++)
   {
+  j_num = j;
   NodeContainer c;
   c.Create (OBU_NODE + RSU_NODE);
 
@@ -419,7 +431,7 @@ int main (int argc, char *argv[])
   // std::cout << "Animation Trace file created:" << animFile.c_str ()<< std::endl;
   Simulator::Destroy ();
   }
-  std::cout << "What is the f: " << f << std::endl;
+  // std::cout << "What is the f: " << f << std::endl;
   
 
   return 0;
