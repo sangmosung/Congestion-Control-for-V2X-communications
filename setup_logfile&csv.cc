@@ -32,17 +32,14 @@ using namespace dsr;
   //blank out the last output file and write the column headers
   std::ofstream out (m_CSVfileName.c_str ());
   out << "SimulationSecond," <<
-    "ReceiveRate," <<
-    "PacketsReceived," <<
+    // "ReceiveRate," <<
+    // "PacketsReceived," <<
     "NumberOfSinks," <<
-    "RoutingProtocol," <<
-    "TransmissionPower," <<
     "WavePktsSent," <<
     "WavePtksReceived," <<
     "WavePktsPpr," <<
     "ExpectedWavePktsReceived," <<
-    "ExpectedWavePktsInCoverageReceived," <<
-    "MacPhyOverhead" <<
+    "ExpectedWavePktsInCoverageReceived" <<
     std::endl;
   out.close ();
 
@@ -57,9 +54,8 @@ using namespace dsr;
 
   NS_LOG_INFO ("Run Simulation.");
 
-  uint32_t bytesTotal = m_routingHelper->GetRoutingStats ().GetRxBytes ();
-  uint32_t packetsReceived = m_routingHelper->GetRoutingStats ().GetRxPkts ();
-  double kbps = (bytesTotal * 8.0) / 1000;
+  // 이 부분부터 로그를 만드는 부분
+  // CBR, VD 등의 로그는 기존 코드에서 받아와서 여기서 구성을 다시 해주어도 상관없다. 
   double wavePDR = 0.0;
   int wavePktsSent = m_waveBsmHelper.GetWaveBsmStats ()->GetTxPktCount ();
   int wavePktsReceived = m_waveBsmHelper.GetWaveBsmStats ()->GetRxPktCount ();
@@ -72,39 +68,19 @@ using namespace dsr;
   int waveExpectedRxPktCount = m_waveBsmHelper.GetWaveBsmStats ()->GetExpectedRxPktCount (1);
   int waveRxPktInRangeCount = m_waveBsmHelper.GetWaveBsmStats ()->GetRxPktInRangeCount (1);
 
-  // calculate MAC/PHY overhead (mac-phy-oh)
-  // total WAVE BSM bytes sent
-  uint32_t cumulativeWaveBsmBytes = m_waveBsmHelper.GetWaveBsmStats ()->GetTxByteCount ();
-  uint32_t cumulativeRoutingBytes = m_routingHelper->GetRoutingStats ().GetCumulativeTxBytes ();
-  uint32_t totalAppBytes = cumulativeWaveBsmBytes + cumulativeRoutingBytes;
-  uint32_t totalPhyBytes = m_wifiPhyStats->GetTxBytes ();
-  // mac-phy-oh = (total-phy-bytes - total-app-bytes) / total-phy-bytes
-  double mac_phy_oh = 0.0;
-  if (totalPhyBytes > 0)
-    {
-      mac_phy_oh = (double) (totalPhyBytes - totalAppBytes) / (double) totalPhyBytes;
-    }
-
   std::ofstream out (m_CSVfileName.c_str (), std::ios::app);
 
   out << (Simulator::Now ()).As (Time::S) << ","
-      << kbps << ","
-      << packetsReceived << ","
       << m_nSinks << ","
-      << m_protocolName << ","
-      << m_txp << ","
       << wavePktsSent << ","
       << wavePktsReceived << ","
       << wavePDR << ","
       << waveExpectedRxPktCount << ","
-      << waveRxPktInRangeCount << ","
-      << mac_phy_oh << ""
+      << waveRxPktInRangeCount << ""
       << std::endl;
 
   out.close ();
 
-  m_routingHelper->GetRoutingStats ().SetRxBytes (0);
-  m_routingHelper->GetRoutingStats ().SetRxPkts (0);
   m_waveBsmHelper.GetWaveBsmStats ()->SetRxPktCount (0);
   m_waveBsmHelper.GetWaveBsmStats ()->SetTxPktCount (0);
   for (int index = 1; index <= 10; index++)
