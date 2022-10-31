@@ -71,7 +71,7 @@ typedef struct {
   int start_time_num = 0;
 }RSU;
 
-#define OBU_NODE 20
+#define OBU_NODE 100
 #define RSU_NODE 1
 #define ROW_LINE 10
 #define TOTAL_TIME 100
@@ -108,7 +108,7 @@ std::string send_itt_data;
 float time_diff;
 int number = 0;
 int j_num =0;
-
+float vd_alpha =1;
 // PVD
 void ReceivePacket_PVD (Ptr<Socket> socket)
 {
@@ -145,7 +145,7 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
           rsu.prev_time = Simulator::Now ().GetSeconds ();
           printf("hello\n");
       }
-      else if (rsu.cycle_num == OBU_NODE-1)
+      else if (rsu.cycle_num == OBU_NODE*vd_alpha-1)
       {
           rsu.time = Simulator::Now ().GetSeconds ();
           std::cout << Simulator::Now ().GetSeconds () << "초: 도착시간: "<< rsu.time - rsu.prev_time << std::endl;
@@ -165,7 +165,12 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
             cbr = (time_diff)*(prev_itt*1000)/(BSM_PACKET_SIZE*BYTE_SIZE)*100;
           
           std::cout << "CBR: "<< cbr  << "%"<< std::endl;
-
+          if(j_num <TOTAL_TIME/10)
+            {
+              vd_alpha =1;
+            }
+          if(j_num >TOTAL_TIME/10 && j_num<TOTAL_TIME*2/10)
+            vd_alpha =0.5;
           // printf("CBR: %.2f %\n",cbr);
           if(cbr!= 0 && cbr >100 && cbr<110) // 0.107
             send_itt_data = "15Kb/s";
@@ -344,7 +349,7 @@ int main (int argc, char *argv[])
 
   // ns3::PacketMetadata::Enable (); // 이거 넣어줘야 실제 패킷 보내고 받을 때 오류 안생김
   // WSA
-    for(int k =1; k<OBU_NODE+RSU_NODE; k++)
+    for(int k =1; k<OBU_NODE*vd_alpha+RSU_NODE; k++)
       {
         Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (k), tid);
         InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), 80);
@@ -362,7 +367,7 @@ int main (int argc, char *argv[])
   
   uint16_t port = 9;
   NS_LOG_INFO ("Create Applications.");
-  for(int i = 1; i <OBU_NODE + RSU_NODE ;i++)
+  for(int i = 1; i <OBU_NODE*vd_alpha + RSU_NODE ;i++)
   {
     OnOffHelper onoff ("ns3::UdpSocketFactory", 
                       Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port)));
@@ -389,7 +394,7 @@ int main (int argc, char *argv[])
 // PVD Unicast code  
   ns3::PacketMetadata::Enable (); // 이거 넣어줘야 실제 패킷 보내고 받을 때 오류 안생김
   
-  for(int i=1; i<OBU_NODE+RSU_NODE; i++)
+  for(int i=1; i<OBU_NODE*vd_alpha+RSU_NODE; i++)
     {
       string PVD_message = "car_info";
       uint8_t PVD_buffer[15];
