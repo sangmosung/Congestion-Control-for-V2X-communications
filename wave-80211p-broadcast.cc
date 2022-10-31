@@ -71,7 +71,7 @@ typedef struct {
   int rep_num = 0;
 }RSU;
 
-#define OBU_NODE 20
+#define OBU_NODE 100
 #define RSU_NODE 1
 #define ROW_LINE 10
 
@@ -85,7 +85,7 @@ NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
  * usage:
  *  NodeContainer nodes;
  *  NetDeviceContainer devices;
- *  nodes.Create (2);
+ *  nodes.Create (2); 
  *  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
  *  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
  *  wifiPhy.SetChannel (wifiChannel.Create ());
@@ -102,7 +102,8 @@ unsigned char recv_buffer2[100];
 unsigned char send_buffer[100];
 Ptr<Packet> packet_0;
 Ptr<Packet> packet_1;
-float f= 0;
+std::string f;
+std::string b;
 float a;
 int number = 0;
 
@@ -112,13 +113,10 @@ void ReceivePacket_PVD (Ptr<Socket> socket)
   
   while (socket->Recv (recv_buffer2,12,0))
     {
-      // NS_LOG_UNCOND ("RSU received PVD from OBU");
-      // printf("출력: %s \n", recv_buffer2);
       string st = "";
       for(int i = 0 ; i<12 ; i++)
         st += recv_buffer2[i];
        
-      // std::cout << "PVD로부터 전달받은내용: " << st << std::endl;
     }
 }
 
@@ -126,15 +124,11 @@ void ReceivePacket_From_WSA (Ptr<Socket> socket)
 {
   // printf("출력: %s \n", recv_buffer);
   
-  while (socket->Recv (recv_buffer,10,0))
+  while (socket->Recv (recv_buffer,7,0))
     {
-      // NS_LOG_UNCOND ("RSU received PVD from OBU");
-      // printf("출력: %s \n", recv_buffer);
-      string st = "";
-      for(int i = 0 ; i<10 ; i++)
-        st += recv_buffer[i];
-      f = std::stof(st); 
-      // std::cout << "WSA로부터 전달받은 주기" << f << std::endl;
+      f = "";
+      for(int i = 0 ; i<7 ; i++)
+        f += recv_buffer[i];
     }
 }
 RSU rsu;
@@ -143,9 +137,6 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
 {
   while (socket->Recv ())
     {
-      // string BSM = "RSU received broadcasting BSM from OBU";
-      // NS_LOG_UNCOND (BSM);
-      // std::cout << Simulator::Now ().GetSeconds () << std::endl;
       if(rsu.num==0)
       {
           rsu.prev_time = Simulator::Now ().GetSeconds ();
@@ -154,10 +145,33 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
       else if (rsu.num == OBU_NODE-1)
       {
           rsu.time = Simulator::Now ().GetSeconds ();
-          // printf("RSU에서 측정한 전송주기는?: ");
-          std::cout << Simulator::Now ().GetSeconds () << ": RSU에서 측정한 전송주기는?: "<< rsu.time - rsu.prev_time << std::endl;
+          std::cout << Simulator::Now ().GetSeconds () << "초: 도착시간: "<< rsu.time - rsu.prev_time << std::endl;
           a = rsu.time - rsu.prev_time;
-          uint8_t* packet_buffer = (uint8_t*)(&a);
+          float c = a/0.1*100;
+          printf("%f\n",c);
+          if(c!= 0 && c >100 && c<110) // 0.107
+            b = "15Kb/s";
+          else if(c!=0 && c>110 && c<120) // 0.114
+            b = "14Kb/s";
+          else if(c!=0 && c>120 && c<130) // 0.123
+            b = "13Kb/s";
+          else if(c!=0 && c>130 && c<140) // 0.133
+            b = "12Kb/s";
+          else if(c!=0 && c>140 && c<150) // 0.145
+            b = "11Kb/s";
+          else if(c!=0 && c>150) // 0.16
+            b = "10Kb/s";
+          else if(c!=0 && c>90 && c<100) // 0.1
+            b = "16Kb/s";
+          else if(c!=0 && c>80 && c<90) // 0.094
+            b = "17Kb/s";
+          else if(c!=0 && c>70 && c<80) // 0.089
+            b = "18Kb/s";
+          else if(c!=0 && c>60 && c<70) // 0.084
+            b = "19Kb/s";
+          else if(c!=0 && c<60) // 0.08
+            b = "20Kb/s";
+          uint8_t* packet_buffer = (uint8_t*)(&b);
           packet_0 = Create<Packet> (packet_buffer,200);
       }
       rsu.num++;
@@ -176,7 +190,6 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
           rsu.rep_num += 1;
         }
       }
-      // printf("%d\n", rsu.num);
     }
   }
 static void GenerateTraffic_PVD (Ptr<Socket> socket, Ptr<Packet> packet,
@@ -201,23 +214,23 @@ static void GenerateTraffic (Ptr<Socket> socket, Ptr<Packet> packet,
     {
       
       // std::cout << a << std::endl;
-      string a_string(std::to_string(a));
+      // string a_string(std::to_string(a));
       // std::cout << a_string << std::endl;
-      uint8_t packet_buffer[10];
+      uint8_t packet_buffer[7];
       
-      std::copy(a_string.begin(), a_string.end(), std::begin(packet_buffer));
+      std::copy(b.begin(), b.end(), std::begin(packet_buffer));
 
       // for(int i=0 ; i< 10;i++)
       // {
       //   printf("%c", packet_buffer[i]);
       // }
-      packet = Create<Packet> (packet_buffer,10);
+      packet = Create<Packet> (packet_buffer,7);
       
       // socket->Send (Create<Packet> (pktSize));
       socket->Send(packet);
       string WSA = "RSU send WSA message as broadcast";
       NS_LOG_UNCOND (WSA);
-      std::cout << Simulator::Now ().GetSeconds () << "초에 전송주기" << a_string << "을 담은 패킷이 전송되었습니다." << std::endl;
+      std::cout << Simulator::Now ().GetSeconds () << "초에 전송주기" << b << "을 담은 패킷이 전송되었습니다." << std::endl;
       printf("\n");
       Simulator::Schedule (pktInterval, &GenerateTraffic,
                            socket, packet,pktCount - 1, pktInterval);
@@ -346,8 +359,11 @@ int main (int argc, char *argv[])
     // 10Kb/s , 125 => 0.1s
     // 1Kb = 1000bit = 125 byte
     // 16Kb = 16000bit = 2000 byte
-    if(f!=0 && f<0.1)
-      onoff.SetConstantRate (DataRate ("20Kb/s"),200);
+    char itt[7];
+    strcpy(itt,f.c_str());
+    if(j!=0)
+      onoff.SetConstantRate (DataRate (itt),200);
+
     else
       onoff.SetConstantRate (DataRate ("16Kb/s"),200);
 
