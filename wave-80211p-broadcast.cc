@@ -54,15 +54,27 @@
 #include "ns3/wave-mac-helper.h"
 #include "ns3/netanim-module.h"
 #include <random>
-
-
+#include "ns3/csma-module.h"
+#include "ns3/core-module.h"
+#include "ns3/network-module.h"
+#include "ns3/applications-module.h"
+#include "ns3/internet-module.h"
+#include <random>
 using namespace ns3;
 using std::string;
 using std::to_string;
 
-#define MAX_NODE 51
-#define COLUMN 10
-#define ROW 5
+typedef struct {
+  float time = 0;
+  float prev_time = 0;
+  int num = 0;
+  int rep_num = 0;
+}RSU;
+
+#define OBU_NODE 200
+#define RSU_NODE 1
+#define ROW_LINE 10
+
 NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
 
 /*
@@ -85,34 +97,111 @@ NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
  * 802.11p standard has been done in wifi module, so we only need a high
  * MAC class that enables OCB mode.
  */
+unsigned char recv_buffer[100];
+unsigned char send_buffer[100];
+Ptr<Packet> packet_0;
+float f= 0;
+float a;
+int number = 0;
 
-// PVD
-void ReceivePacket_PVD (Ptr<Socket> socket)
+void ReceivePacket_From_WSA (Ptr<Socket> socket)
 {
-  while (socket->Recv ())
+  // printf("출력: %s \n", recv_buffer);
+  
+  while (socket->Recv (recv_buffer,10,0))
     {
-      NS_LOG_UNCOND ("RSU received PVD from OBU");
+      // NS_LOG_UNCOND ("RSU received PVD from OBU");
+      // printf("출력: %s \n", recv_buffer);
+      string st = "";
+      for(int i = 0 ; i<10 ; i++)
+        st += recv_buffer[i];
+      f = std::stof(st); 
     }
+  std::cout << "WSA로부터 전달받은 주기" << f << std::endl;
 }
+RSU rsu;
 // BSM
 void ReceivePacket_BSM (Ptr<Socket> socket)
-{
-
-  while (socket->Recv ())
+{Recv
+  while (socket-> ())
     {
-      // string BSM = to_string(socket->GetNode()->GetId()) + "th OBU received broadcasting BSM from OBU";
+      // string BSM = "RSU received broadcasting BSM from OBU";
       // NS_LOG_UNCOND (BSM);
+      // std::cout << Simulator::Now ().GetSeconds () << std::endl;
+      if(rsu.num==0)
+      {
+          rsu.prev_time = Simulator::Now ().GetSeconds ();
+          printf("hello\n");
+      }
+      else if (rsu.num == OBU_NODE-1)
+      {
+          rsu.time = Simulator::Now ().GetSeconds ();
+          printf("RSU에서 측정한 전송주기는?: ");
+          std::cout << rsu.time - rsu.prev_time << std::endl;
+          a = rsu.time - rsu.prev_time;
+          uint8_t* packet_buffer = (uint8_t*)(&a);
+          packet_0 = Create<Packet> (packet_buffer,200);
+      }
+      rsu.num++;
+      if(Simulator::Now ().GetSeconds () >1 && rsu.rep_num ==0)
+      {
+        rsu.num=1;
+        rsu.prev_time = Simulator::Now ().GetSeconds ();  
+        rsu.rep_num += 1;
+      }
+      for(int i =0; i <10 ; i++)
+      {
+        if(Simulator::Now ().GetSeconds () >1+i && rsu.rep_num == i)
+        { 
+          rsu.num=1;
+          rsu.prev_time = Simulator::Now ().GetSeconds ();  
+          rsu.rep_num += 1;
+        }
+      }
+      // printf("%d\n", rsu.num);
     }
-}
-
-static void GenerateTraffic (Ptr<Socket> socket, uint32_t pktSize,
+  }
+// static void GenerateTraffic_PVD (Ptr<Socket> socket, uint32_t pktSize,
+//                              uint32_t pktCount, Time pktInterval )
+// {
+//   if (pktCount > 0)
+//     {
+//       socket->Send (Create<Packet> (pktSize));
+//       Simulator::Schedule (pktInterval, &GenerateTraffic_PVD,
+//                            socket, pktSize,pktCount - 1, pktInterval);
+//     }
+//   else
+//     {
+//       socket->Close ();
+//     }
+// }
+static void GenerateTraffic (Ptr<Socket> socket, Ptr<Packet> packet,
                              uint32_t pktCount, Time pktInterval )
 {
+  
   if (pktCount > 0)
     {
-      socket->Send (Create<Packet> (pktSize));
+      
+      // std::cout << a << std::endl;
+      string a_string(std::to_string(a));
+      // std::cout << a_string << std::endl;
+      uint8_t packet_buffer[10];
+      
+      std::copy(a_string.begin(), a_string.end(), std::begin(packet_buffer));
+
+      // for(int i=0 ; i< 10;i++)
+      // {
+      //   printf("%c", packet_buffer[i]);
+      // }
+      packet = Create<Packet> (packet_buffer,10);
+      
+      // socket->Send (Create<Packet> (pktSize));
+      socket->Send(packet);
+      string WSA = "RSU send WSA message as broadcast";
+      NS_LOG_UNCOND (WSA);
+      std::cout << Simulator::Now ().GetSeconds () << "초에 전송주기" << a_string << "을 담은 패킷이 전송되었습니다." << std::endl;
       Simulator::Schedule (pktInterval, &GenerateTraffic,
-                           socket, pktSize,pktCount - 1, pktInterval);
+                           socket, packet,pktCount - 1, pktInterval);
     }
   else
     {
@@ -141,9 +230,10 @@ int main (int argc, char *argv[])
   // Convert to time object
   Time interPacketInterval = Seconds (interval);
 
-
+  for(int j = 0 ; j<2; j++)
+  {
   NodeContainer c;
-  c.Create (MAX_NODE);
+  c.Create (OBU_NODE + RSU_NODE);
 
   // The below set of helpers will help us to put together the wifi NICs we want
   YansWifiPhyHelper wifiPhy =  YansWifiPhyHelper::Default ();
@@ -164,17 +254,29 @@ int main (int argc, char *argv[])
                                       "ControlMode",StringValue (phyMode));
   NetDeviceContainer devices = wifi80211p.Install (wifiPhy, wifi80211pMac, c);
 
+  // CSMA node setting
+  NodeContainer c1 = NodeContainer (c,0,OBU_NODE + RSU_NODE);
+  NS_LOG_INFO ("Build Topology.");
+  CsmaHelper csma;
+  csma.SetChannelAttribute ("DataRate", DataRateValue (DataRate (5000000)));
+  csma.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (5)));
+  NetDeviceContainer n1 = csma.Install (c1);
+
+  NetDeviceContainer devices_mix = NetDeviceContainer (devices, n1);
+
+
+
   // Tracing
-  wifiPhy.EnablePcap ("wave-simple-80211p", devices);
+  wifiPhy.EnablePcap ("wave-simple-80211p", false);
 
   MobilityHelper mobility;
   Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
-  positionAlloc->Add (Vector (45, 0.0, 0.0));
+  positionAlloc->Add (Vector (OBU_NODE/(2*ROW_LINE), 0.0, 0.0));
 
-  for(int i =0; i<ROW; i++)
+  for(int i =0; i<ROW_LINE; i++)
   {
-    for(int j=0;j<COLUMN;j++)
-      positionAlloc->Add (Vector (10.0*j, 10.0*(i+1), 0.0));
+    for(int j=0;j<OBU_NODE/ROW_LINE;j++)
+      positionAlloc->Add (Vector (1*j, 1*(i+1), 0.0));
   }
   mobility.SetPositionAllocator (positionAlloc);
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
@@ -187,8 +289,8 @@ int main (int argc, char *argv[])
 
   Ipv4AddressHelper ipv4;
   NS_LOG_INFO ("Assign IP Addresses.");
-  ipv4.SetBase ("10.1.1.0", "255.255.255.0");
-  Ipv4InterfaceContainer i = ipv4.Assign (devices);
+  ipv4.SetBase ("10.0.0.0", "255.0.0.0");
+  ipv4.Assign (devices_mix);
 
   TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
   /// RSU가 OBU에게 broadcast message를 보낼 때!!
@@ -196,40 +298,12 @@ int main (int argc, char *argv[])
   // 2. broadcast Interval을 부여
   //   - ns3 내에 timer = 100ms 
 
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<int> dis(0,50);
 
-
-  // Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid);
-  // InetSocketAddress local = InetSocketAddress (i.GetAddress(0), 80);
-  // recvSink->Bind (local);
-  // recvSink->SetRecvCallback (MakeCallback (&ReceivePacket));                                     
-
-  // // for(int j=1; j<MAX_NODE; j++)
-  // //   {
-
-  //     InetSocketAddress remote = InetSocketAddress (i.GetAddress(0), 80);
-  //     Ptr<Socket> source = Socket::CreateSocket (c.Get (2), tid);
-  //     // source->SetAllowBroadcast (true);
-  //     source->Connect (remote);
-  // //  Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
-
-  //     Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
-  //                             Seconds (1), &GenerateTraffic,
-  //                             source, packetSize, numPackets, interPacketInterval);
-                            
-  //     Simulator::Schedule (Seconds (1), &GenerateTraffic, source, packetSize, numPackets, interPacketInterval);                   
-  //   // }
-
-
-
-//////////////////////////////////////////////////////////////////////////////////////
-// no random PVD Unicast code  
+// PVD Unicast code  
   // int m = 0;                           
   // while(m<5)
   //   {
-  //   for(int i=1; i<MAX_NODE; i++)
+  //   for(int i=1; i<OBU_NODE+RSU_NODE; i++)
   //     {
   //       InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), i);
   //       Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid);
@@ -241,67 +315,133 @@ int main (int argc, char *argv[])
   //       source->Connect (remote);
   //       // NS_LOG_UNCOND (source->GetNode ()->GetId ());   
   //       Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
-  //                               Seconds (m+0.02*i), &GenerateTraffic,
+  //                               Seconds (m+0.02*i), &GenerateTraffic_PVD,
   //                               source, packetSize, numPackets, interPacketInterval);
   //     }
   //     m++;
   //   }
 
-//////////////////////////////////////////////////////////////////////////////////////
-/// 50개씩 감! --->> BSM Broadcast Success
-  InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), 80);
-  int n = 1;
-  int second_node = 1;
-  int second_node_1 = 2;
-  while(n<250)
-  {
-    int first_node = dis(gen);
-    int first_node_1 = dis(gen);
-    // NS_LOG_UNCOND (second_node);   
-    // NS_LOG_UNCOND (second_node_1);   
+    //   uint8_t* packet_buffer = (uint8_t*)(&a);
+    // Ptr<Packet> packet_0 = Create<Packet> (packet_buffer,200);
+  ns3::PacketMetadata::Enable (); // 이거 넣어줘야 실제 패킷 보내고 받을 때 오류 안생김
+  
+  // int n = 0;
+  // while(n<2)
+  // {
+    for(int k =1; k<OBU_NODE+RSU_NODE; k++)
+      {
+        Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (k), tid);
+        InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), 80);
+        recvSink->Bind (local);
+        recvSink->SetRecvCallback (MakeCallback (&ReceivePacket_From_WSA));                                     
+      }
+    // Ptr<Packet> packet_0 = Create<Packet> (packet_buffer,10);
+      
+      InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), 80);
+      Ptr<Socket> source = Socket::CreateSocket (c.Get (0), tid);
+      source->SetAllowBroadcast (true);
+      source->Connect (remote);
 
-    if(first_node != second_node && first_node != first_node_1 
-                                  && first_node != second_node_1 && first_node_1 != second_node 
-                                  && first_node_1 != second_node_1 && second_node != second_node_1)   
-    {
-      for(int j =0; j<MAX_NODE; j++)
-        {
-          if(first_node != j && second_node != j)
-          {
-          Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (j), tid);
-          InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), 80);
-          recvSink->Bind (local);
-
-          // recvSink->SetRecvCallback (MakeCallback (&BsmApplication::ReceiveWavePacket, recvSink));
-          recvSink->SetRecvCallback (MakeCallback (&ReceivePacket_BSM));                                     
-          }
-        }
-        Ptr<Socket> source = Socket::CreateSocket (c.Get (first_node), tid);
-        Ptr<Socket> source1 = Socket::CreateSocket (c.Get (first_node_1), tid);
-        source->SetAllowBroadcast (true);
-        source->Connect (remote);
-        source1->SetAllowBroadcast (true);
-        source1->Connect (remote);
-        Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
-                                        Seconds (0.02*n+0.015), &GenerateTraffic,
-                                        source, packetSize, numPackets, interPacketInterval);
-        Simulator::ScheduleWithContext (source1->GetNode ()->GetId (),
-                                        Seconds (0.02*n+0.01), &GenerateTraffic,
-                                        source1, packetSize, numPackets, interPacketInterval);
-        string BSM = to_string(source->GetNode()->GetId()) + "th OBU send BSM message as broadcast";
-        NS_LOG_UNCOND (BSM);
-        string BSM1 = to_string(source1->GetNode()->GetId()) + "th OBU send BSM message as broadcast";
-        NS_LOG_UNCOND (BSM1);
+      // string WSA = "RSU send WSA message as broadcast";
+      // NS_LOG_UNCOND (WSA);
         
-        second_node = first_node;
-        second_node_1 = first_node_1;
-    }   
-      n++;
+      Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
+                                      Seconds (j+1), &GenerateTraffic,
+                                      source, packet_0, numPackets, interPacketInterval);
+
+  //   n++;    
+  // }   
+  uint16_t port = 9;
+  NS_LOG_INFO ("Create Applications.");
+  for(int i = 1; i <OBU_NODE + RSU_NODE ;i++)
+  {
+    OnOffHelper onoff ("ns3::UdpSocketFactory", 
+                      Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port)));
+    // 10Kb/s , 125 => 0.1s
+    // 1Kb = 1000bit = 125 byte
+    // 16Kb = 16000bit = 2000 byte
+    if(f!=0 && f<0.1)
+      onoff.SetConstantRate (DataRate ("18Kb/s"),200);
+    else
+      onoff.SetConstantRate (DataRate ("16Kb/s"),200);
+      
+    ApplicationContainer app = onoff.Install (c1.Get (i));
+    // RSU가 측정하는 부분
+    Ptr<Socket> recvSink = Socket::CreateSocket (c1.Get (0), tid);
+    InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), port);
+    recvSink->Bind (local);
+    recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_BSM));
+    app.Start (Seconds (0.0001+j));
+    app.Stop (Seconds (1.0001+j));
   }
+
+  // for(int i = 1; i <OBU_NODE + RSU_NODE ;i++)
+  // {
+  //   std::cout << f << std::endl;
+  //   OnOffHelper onoff ("ns3::UdpSocketFactory", 
+  //                     Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port+1)));
+  //   onoff.SetConstantRate (DataRate ("16Kb/s"),200);
+  //   onoff.SetConstantRate (DataRate ("32Kb/s"),200);
+  //   ApplicationContainer app = onoff.Install (c1.Get (i));
+    
+  //   Ptr<Socket> recvSink = Socket::CreateSocket (c1.Get (0), tid);
+  //   InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), port+1);
+  //   recvSink->Bind (local);
+  //   recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_BSM));
+
+  //   app.Start (Seconds (1.0));
+  //   app.Stop(Seconds(2.0));
+  // }
+
+  // for(int i = 1; i <OBU_NODE + RSU_NODE ;i++)
+  // {
+  //   OnOffHelper onoff ("ns3::UdpSocketFactory", 
+  //                     Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port+2)));
+  //   // 10Kb/s , 125 => 0.1s
+  //   // 1Kb = 1000bit = 125 byte
+  //   // 16Kb = 16000bit = 2000 byte
+  //   if(rsu.time - rsu.prev_time <0.5)
+  //   {
+  //   onoff.SetConstantRate (DataRate ("64Kb/s"),200);
+  //   }
+  //   else
+  //   {
+  //   onoff.SetConstantRate (DataRate ("24Kb/s"),200);
+  //   }
+  //   ApplicationContainer app = onoff.Install (c1.Get (i));
+  //   Ptr<Socket> recvSink = Socket::CreateSocket (c1.Get (0), tid);
+  //   InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), port+2);
+  //   recvSink->Bind (local);
+  //   recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_BSM));
+  //   app.Start (Seconds (2.0));
+  //   app.bsm_stop(Seconds(3.0), rsu.num);
+  // }
+  // Ptr<Socket> recvSink = Socket::CreateSocket (c1.Get (0), tid);
+  // InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), port);
+  // recvSink->Bind (local);
+  // recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_BSM));
+
+
+
+  AsciiTraceHelper ascii;
+  csma.EnableAsciiAll (ascii.CreateFileStream ("WSA_example.tr"));
+
+
+  // Also configure some tcpdump traces; each interface will be traced
+  // The output files will be named
+  // csma-broadcast-<nodeId>-<interfaceId>.pcap
+  // and can be read by the "tcpdump -tt -r" command 
+
+  NS_LOG_INFO ("Run Simulation.");
+
   AnimationInterface anim (animFile);
+  anim.SetMaxPktsPerTraceFile(500000);
   Simulator::Run ();
-  std::cout << "Animation Trace file created:" << animFile.c_str ()<< std::endl;
+  // std::cout << "Animation Trace file created:" << animFile.c_str ()<< std::endl;
   Simulator::Destroy ();
+  }
+  std::cout << "What is the f: " << f << std::endl;
+  
 
   return 0;
 }
