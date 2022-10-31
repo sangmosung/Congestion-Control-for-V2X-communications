@@ -71,7 +71,7 @@ typedef struct {
   int rep_num = 0;
 }RSU;
 
-#define OBU_NODE 200
+#define OBU_NODE 20
 #define RSU_NODE 1
 #define ROW_LINE 10
 
