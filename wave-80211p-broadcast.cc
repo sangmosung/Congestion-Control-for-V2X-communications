@@ -123,7 +123,7 @@ RSU rsu;
 // BSM
 void ReceivePacket_BSM (Ptr<Socket> socket)
 {Recv
-  while (socket-> ())
+  while (socket-> Recv())
     {
       // string BSM = "RSU received broadcasting BSM from OBU";
       // NS_LOG_UNCOND (BSM);
