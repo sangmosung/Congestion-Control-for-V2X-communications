@@ -131,11 +131,14 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
           std::cout << Simulator::Now ().GetSeconds () << "s>> Time taken from BSM transmission to arrival: "<< time_diff <<  "[s]" << std::endl;
           itt_char[0] = recv_itt_data[0];
           itt_char[1] = recv_itt_data[1];
-          int prev_itt = (itt_char[0]-'0')*10+(itt_char[1]-'0');
+          int prev_itt = (itt_char[0]-'0')*10+(itt_char[1]-'0');  // prev_itt is stored as kbps format
           if(j_copy ==0)
             cbr = time_diff/init_itt*100;
           else
-            cbr = (time_diff)*(prev_itt*1000)/(BSM_PACKET_SIZE*BYTE_SIZE)*100;
+            /**
+             * @brief result of "(BSM_PACKET_SIZE*BYTE_SIZE)/(prev_itt*1000)" is output form of seconds
+             */
+            cbr = (time_diff)*(prev_itt*1000)/(BSM_PACKET_SIZE*BYTE_ SIZE)*100;
           
           std::cout << Simulator::Now ().GetSeconds () << "s>> Channel Busy Ratio: "<< cbr  << "[%]"<< std::endl;
           
@@ -147,11 +150,11 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
               << m_cbr << ",";
           out.close();
 
-        /**
-         * @brief ITT is determined according to CBR
-         * @details Depending on the Qualcomm's report, C-V2X Congestion Control Study
-         * @details We decided the section of CBR and values of ITT as follows
-         */
+          /**
+           * @brief ITT is determined according to CBR
+           * @details Depending on the Qualcomm's report, C-V2X Congestion Control Study
+           * @details We decided the section of CBR and values of ITT as follows
+           */
           if(cbr!= 0 && cbr >=100 && cbr<110) // 0.107
             {
               send_itt_data = "15Kb/s";
