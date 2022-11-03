@@ -429,9 +429,9 @@ int main (int argc, char *argv[])
         uint8_t PVD_buffer[15];
         std::copy(PVD_message.begin(), PVD_message.end(), std::begin(PVD_buffer));
         pvd_packet = Create<Packet> (PVD_buffer,8); // packet to send the PVD from OBUs to RSU
-        InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), i+100);
+        InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), i);
         Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid);
-        InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), i+100);
+        InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), i);
         recvSink->Bind (local);
         recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_PVD)); // RSU receives the PVD according to ReceivePacket_PVD function
         Ptr<Socket> source = Socket::CreateSocket (c.Get (i), tid);
