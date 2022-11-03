@@ -152,52 +152,52 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
          * @details Depending on the Qualcomm's report, C-V2X Congestion Control Study
          * @details We decided the section of CBR and values of ITT as follows
          */
-          if(cbr!= 0 && cbr >100 && cbr<110) // 0.107
+          if(cbr!= 0 && cbr >=100 && cbr<110) // 0.107
             {
               send_itt_data = "15Kb/s";
               ITT = 0.107;
             }
-          else if(cbr!=0 && cbr>110 && cbr<120) // 0.114
+          else if(cbr!=0 && cbr>=110 && cbr<120) // 0.114
             {
               send_itt_data = "14Kb/s";
               ITT = 0.114;
             }
-          else if(cbr!=0 && cbr>120 && cbr<130) // 0.123
+          else if(cbr!=0 && cbr>=120 && cbr<130) // 0.123
             {
               send_itt_data = "13Kb/s";
               ITT = 0.123;
             }
-          else if(cbr!=0 && cbr>130 && cbr<140) // 0.133
+          else if(cbr!=0 && cbr>=130 && cbr<140) // 0.133
             {
               send_itt_data = "12Kb/s";
               ITT = 0.133;
             }
-          else if(cbr!=0 && cbr>140 && cbr<150) // 0.145
+          else if(cbr!=0 && cbr>=140 && cbr<150) // 0.145
             {
               send_itt_data = "11Kb/s";
               ITT = 0.145;
             }
-          else if(cbr!=0 && cbr>150) // 0.16
+          else if(cbr!=0 && cbr>=150) // 0.16
             {
               send_itt_data = "10Kb/s";
               ITT = 0.160;
             }
-          else if(cbr!=0 && cbr>90 && cbr<100) // 0.1
+          else if(cbr!=0 && cbr>=90 && cbr<100) // 0.1
             {
               send_itt_data = "16Kb/s";
               ITT = 0.100;
             }
-          else if(cbr!=0 && cbr>80 && cbr<90) // 0.094
+          else if(cbr!=0 && cbr>=80 && cbr<90) // 0.094
             {
               send_itt_data = "17Kb/s";
               ITT = 0.094;
             }
-          else if(cbr!=0 && cbr>70 && cbr<80) // 0.089
+          else if(cbr!=0 && cbr>=70 && cbr<80) // 0.089
             {
               send_itt_data = "18Kb/s";
               ITT = 0.089;
             }
-          else if(cbr!=0 && cbr>60 && cbr<70) // 0.084
+          else if(cbr!=0 && cbr>=60 && cbr<70) // 0.084
             {
               send_itt_data = "19Kb/s";
               ITT = 0.084;
