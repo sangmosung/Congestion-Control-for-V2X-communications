@@ -64,13 +64,23 @@ using namespace ns3;
 using std::string;
 using std::to_string;
 
+/**
+ * @brief RSU struct to find the transmission period in RSU
+ * @param prev_time parameter to store the time when the first BSM arrived in one cycle
+ * @param current_time parameter to store the time when the last BSM arrived in one cycle
+ * @param arrival_num parameter to store arrived BSM number
+ * @param start_time_num parameter to protect the reply attack
+ */
 typedef struct {
-  float time = 0;
   float prev_time = 0;
-  int cycle_num = 0;
+  float current_time = 0;
+  int arrival_num = 0;
   int start_time_num = 0;
 }RSU;
-
+/**
+ * @brief WSA struct to store the time receiving WSA
+ * @param time_wsa WSA time
+ */
 typedef struct {
   float time_wsa = 0;
 }WSA;
@@ -83,58 +93,41 @@ typedef struct {
 #define BYTE_SIZE 8
 NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
 
-/*
- * In WAVE module, there is no net device class named like "Wifi80211pNetDevice",
- * instead, we need to use Wifi80211pHelper to create an object of
- * WifiNetDevice class.
- *
- * usage:
- *  NodeContainer nodes;
- *  NetDeviceContainer devices;
- *  nodes.Create (2); 
- *  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default ();
- *  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
- *  wifiPhy.SetChannel (wifiChannel.Create ());
- *  NqosWaveMacHelper wifi80211pMac = NqosWave80211pMacHelper::Default();
- *  Wifi80211pHelper wifi80211p = Wifi80211pHelper::Default ();
- *  devices = wifi80211p.Install (wifiPhy, wifi80211pMac, nodes);
- *
- * The reason of not providing time_diff 802.11p class is that most of modeling
- * 802.11p standard has been done in wifi module, so we only need time_diff high
- * MAC class that enables OCB mode.
- */
 unsigned char recv_wsa_packet[100];
-unsigned char recv_pvd_packet[100];
-Ptr<Packet> send_wsa_packet;
-Ptr<Packet> send_pvd_packet;
-std::string recv_itt_data;
-std::string send_itt_data;
+unsigned char recv_pvd_packet[20];
 float time_diff;
 int number = 0;
-int j_num =0;
+int j_copy =0;
 float ITT;
 float init_itt = 0.080;
+Ptr<Packet> wsa_packet;
+Ptr<Packet> pvd_packet;
+std::string recv_itt_data;
+std::string send_itt_data;
 RSU rsu;
 WSA wsa;
 
-// PVD
+/**
+ * @brief the function that RSU receives the PVD message from each OBU
+ * @param socket input socket
+ **/
 void ReceivePacket_PVD (Ptr<Socket> socket)
 {
-  
   while (socket->Recv (recv_pvd_packet,12,0))
     {
       string st = "";
       for(int i = 0 ; i<12 ; i++)
         st += recv_pvd_packet[i];
     }
-
 }
 
-// WSA
+/**
+ * @brief the function that each OBU receives the WSA from RSU
+ * @details OBU receives the packet from RSU and stores the message to recv_itt_data
+ * @param socket input socket
+ */
 void ReceivePacket_WSA (Ptr<Socket> socket)
 {
-  // printf("출력: %s \n", recv_wsa_packet);
-  
   while (socket->Recv (recv_wsa_packet,7,0))
     {
       recv_itt_data = "";
@@ -144,48 +137,45 @@ void ReceivePacket_WSA (Ptr<Socket> socket)
     wsa.time_wsa = Simulator::Now ().GetSeconds (); 
 }
 
-// BSM
+/**
+ * @brief the function that RSU receives the BSM from all OBUs and caculated ITT
+ * @details RSU receives the BSM from OBUs and calculates the CBR using struct RSU
+ * @details RSU stores the ITT in wsa_packet using CBR and in csv file
+ * @param socket input socket
+ */
 void ReceivePacket_BSM (Ptr<Socket> socket)
 {
   while (socket->Recv ())
     {
-
-      if(rsu.cycle_num==0)
+      if(rsu.arrival_num==0)
       {
           rsu.prev_time = Simulator::Now ().GetSeconds ();
           printf("Simulation Start\n");
       }
-      else if (rsu.cycle_num == OBU_NODE-1)
+      else if (rsu.arrival_num == OBU_NODE-1)
       {
-          rsu.time = Simulator::Now ().GetSeconds ();
-          time_diff = rsu.time - rsu.prev_time;
-          std::cout << Simulator::Now ().GetSeconds () << "s>> Time taken from BSM transmission to arrival: "<< time_diff <<  "[s]" << std::endl;
-
-          // std::cout << recv_itt_data << std::endl;
+          float cbr;
           char itt_char[2];
+          rsu.current_time = Simulator::Now ().GetSeconds ();
+          time_diff = rsu.current_time - rsu.prev_time;
+          std::cout << Simulator::Now ().GetSeconds () << "s>> Time taken from BSM transmission to arrival: "<< time_diff <<  "[s]" << std::endl;
           itt_char[0] = recv_itt_data[0];
           itt_char[1] = recv_itt_data[1];
           int prev_itt = (itt_char[0]-'0')*10+(itt_char[1]-'0');
-          // std::cout << itt_char << std::endl;
-          // std::cout << "hi:"<<prev_itt << std::endl;
-          float cbr;
-          if(j_num ==0)
+          if(j_copy ==0)
             cbr = time_diff/init_itt*100;
           else
             cbr = (time_diff)*(prev_itt*1000)/(BSM_PACKET_SIZE*BYTE_SIZE)*100;
           
           std::cout << Simulator::Now ().GetSeconds () << "s>> Channel Busy Ratio: "<< cbr  << "[%]"<< std::endl;
-
-          // extract simulation time, cbr as csv file
-          float m_simulationTime = rsu.time;
+          
+          float m_simulationTime = rsu.current_time;
           float m_cbr = cbr;
           std::ofstream out;
           out.open("V2X_variables2.csv", std::ios::app);
           out << m_simulationTime << ","
               << m_cbr << ",";
           out.close();
-
-          // printf("CBR: %.2f %\n",cbr);
           if(cbr!= 0 && cbr >100 && cbr<110) // 0.107
             {
               send_itt_data = "15Kb/s";
@@ -243,21 +233,29 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
             }
 
           uint8_t* packet_buffer = (uint8_t*)(&send_itt_data);
-          send_wsa_packet = Create<Packet> (packet_buffer,200);
+          wsa_packet = Create<Packet> (packet_buffer,200);
       }
-      rsu.cycle_num++;
+      rsu.arrival_num++;
 
       for(int i =0; i <TOTAL_TIME ; i++)
       {
-        if(j_num ==i && rsu.start_time_num == i)
+        if(j_copy ==i && rsu.start_time_num == i)
         { 
-          rsu.cycle_num=1;
+          rsu.arrival_num=1;
           rsu.prev_time = Simulator::Now ().GetSeconds ();  
           rsu.start_time_num += 1;
         }
       }
     }
   }
+
+/**
+ * @brief the function that sends the PVD packets
+ * @param socket input socket
+ * @param packet packet including the PVD
+ * @param pktCount number of times to send
+ * @param pktInterval time interval at which packets are sent
+ */
 static void GenerateTraffic_PVD (Ptr<Socket> socket, Ptr<Packet> packet,
                              uint32_t pktCount, Time pktInterval )
 {
@@ -272,29 +270,26 @@ static void GenerateTraffic_PVD (Ptr<Socket> socket, Ptr<Packet> packet,
       socket->Close ();
     }
 }
-static void GenerateTraffic (Ptr<Socket> socket, Ptr<Packet> packet,
+/**
+ * @brief the function that generates the WSA and sends the WSA packets
+ * @details RSU generates the WSA and sends the WSA to all OBUs
+ * @param socket input socket
+ * @param packet packet to include the WSA
+ * @param pktCount number of times to send
+ * @param pktInterval time interval at which packets are sent
+ */
+static void GenerateTraffic_WSA (Ptr<Socket> socket, Ptr<Packet> packet,
                              uint32_t pktCount, Time pktInterval )
 {
-  
   if (pktCount > 0)
     {
-      
-      // std::cout << time_diff << std::endl;
-      // string a_string(std::to_string(time_diff));
-      // std::cout << a_string << std::endl;
-      uint8_t packet_buffer[7];
-      
+      uint8_t packet_buffer[7]; 
       std::copy(send_itt_data.begin(), send_itt_data.end(), std::begin(packet_buffer));
-
       packet = Create<Packet> (packet_buffer,7);
-      
-      // socket->Send (Create<Packet> (pktSize));
       socket->Send(packet);
-      string WSA = "RSU send WSA message as broadcast";
-      NS_LOG_UNCOND (WSA);
       std::cout << Simulator::Now ().GetSeconds () << "s>> ITT(" << ITT << ")를 담은 WSA 메시지가 전송되었습니다." << std::endl;
       printf("\n");
-      Simulator::Schedule (pktInterval, &GenerateTraffic,
+      Simulator::Schedule (pktInterval, &GenerateTraffic_WSA,
                            socket, packet,pktCount - 1, pktInterval);
     }
   else
@@ -306,10 +301,10 @@ static void GenerateTraffic (Ptr<Socket> socket, Ptr<Packet> packet,
 int main (int argc, char *argv[])
 {
   std::string phyMode ("OfdmRate6MbpsBW10MHz");
-  uint32_t packetSize = 1000; // bytes
+  uint32_t packetSize = 1000; 
   uint32_t numPackets = 1;
-  std::string animFile = "wave-80211p.xml" ;  // Name of file for animation output
-  double interval = 1.0; // seconds
+  std::string animFile = "wave-80211p.xml" ;
+  double interval = 1.0;
   bool verbose = false;
 
   CommandLine cmd (__FILE__);
@@ -321,21 +316,25 @@ int main (int argc, char *argv[])
   cmd.AddValue ("verbose", "turn on all WifiNetDevice log components", verbose);
   cmd.AddValue ("animFile",  "File Name for Animation Output", animFile);
   cmd.Parse (argc, argv);
-  // Convert to time object
   Time interPacketInterval = Seconds (interval);
 
+  /**
+   * @brief Simulate every sec 
+   */
   for(int j = 0 ; j<TOTAL_TIME; j++)
   {
-    j_num = j;
+    j_copy = j;
     NodeContainer c;
     c.Create (OBU_NODE + RSU_NODE);
+    
 
-    // The below set of helpers will help us to put together the wifi NICs we want
+    /**
+     * @brief install wifi device to nodes 
+     */
     YansWifiPhyHelper wifiPhy =  YansWifiPhyHelper::Default ();
     YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
     Ptr<YansWifiChannel> channel = wifiChannel.Create ();
     wifiPhy.SetChannel (channel);
-    // ns-3 supports generate time_diff pcap trace
     wifiPhy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11);
     NqosWaveMacHelper wifi80211pMac = NqosWaveMacHelper::Default ();
     Wifi80211pHelper wifi80211p = Wifi80211pHelper::Default ();
@@ -347,25 +346,26 @@ int main (int argc, char *argv[])
     wifi80211p.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
                                         "DataMode",StringValue (phyMode),
                                         "ControlMode",StringValue (phyMode));
-    NetDeviceContainer devices = wifi80211p.Install (wifiPhy, wifi80211pMac, c);
-
-    // CSMA node setting
-    // NodeContainer c1 = NodeContainer (c,0,OBU_NODE + RSU_NODE);
+    NetDeviceContainer wave_devices = wifi80211p.Install (wifiPhy, wifi80211pMac, c);
     NS_LOG_INFO ("Build Topology.");
+
+    /**
+     * @brief install the csma to nodes
+     */
     CsmaHelper csma;
     csma.SetChannelAttribute ("DataRate", DataRateValue (DataRate (5000000)));
     csma.SetChannelAttribute ("Delay", TimeValue (NanoSeconds (50)));
-    NetDeviceContainer n1 = csma.Install (c);
+    NetDeviceContainer csma_devices = csma.Install (c);
 
-    NetDeviceContainer devices_mix = NetDeviceContainer (devices, n1);
-
-    // Tracing
+    NetDeviceContainer total_devices = NetDeviceContainer (wave_devices, csma_devices);
     wifiPhy.EnablePcap ("wave-simple-80211p", false);
 
+    /**
+     * @brief assign positions to each nodes
+     */
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAlloc = CreateObject<ListPositionAllocator> ();
     positionAlloc->Add (Vector (OBU_NODE/(2*ROW_LINE), 0.0, 0.0));
-
     for(int i =0; i<ROW_LINE; i++)
     {
       for(int j=0;j<OBU_NODE/ROW_LINE;j++)
@@ -375,24 +375,26 @@ int main (int argc, char *argv[])
     mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
     mobility.Install (c);
 
+    /**
+     * @brief assign the ip address to toal_devices
+     */
     NS_LOG_INFO ("Enabling OLSR Routing");
-    
     InternetStackHelper internet;
     internet.Install (c);
 
     Ipv4AddressHelper ipv4;
     NS_LOG_INFO ("Assign IP Addresses.");
     ipv4.SetBase ("10.0.0.0", "255.0.0.0");
-    ipv4.Assign (devices_mix);
+    ipv4.Assign (total_devices);
 
     TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
-    /// RSU가 OBU에게 broadcast message를 보낼 때!!
-    // 1. 다중 node의 동시 broadcast 구현
-    // 2. broadcast Interval을 부여
-    //   - ns3 내에 timer = 100ms 
-
-    // ns3::PacketMetadata::Enable (); // 이거 넣어줘야 실제 패킷 보내고 받을 때 오류 안생김
-    // WSA
+    
+    /**
+     * @brief this step is the RSU sends the WSA to OBUs
+     * @details RSU sends the WSA packet every sec using GenerateTraffic_WSA function and
+     * @details OBUs receive the WSA packet using ReceivePacket_WSA function.
+     * @details Finally, we make the csv file using m_itt and m_wsaReceiveTime
+     */
     for(int k =1; k<OBU_NODE+RSU_NODE; k++)
       {
         Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (k), tid);
@@ -400,45 +402,39 @@ int main (int argc, char *argv[])
         recvSink->Bind (local);
         recvSink->SetRecvCallback (MakeCallback (&ReceivePacket_WSA));                                     
       }
-
-      // extract wsa recieve time, itt as csv file
-      float m_wsaRecieveTime = wsa.time_wsa;
-      float m_itt = ITT;
-      std::ofstream out;
-      out.open("V2X_variables2.csv", std::ios::app);
-      out << m_wsaRecieveTime << "," 
-          << m_itt
-          << std::endl;
-      out.close();
-
-      InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), 80);
-      Ptr<Socket> source = Socket::CreateSocket (c.Get (0), tid);
-      source->SetAllowBroadcast (true);
-      source->Connect (remote);
-        
-      Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
-                                      Seconds (j+1), &GenerateTraffic,
-                                      source, send_wsa_packet, numPackets, interPacketInterval);
-    
+    float m_wsaReceiveTime = wsa.time_wsa;
+    float m_itt = ITT;
+    std::ofstream out;
+    out.open("V2X_variables2.csv", std::ios::app);
+    out << m_wsaReceiveTime << "," 
+        << m_itt
+        << std::endl;
+    out.close();
+    InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), 80);
+    Ptr<Socket> source = Socket::CreateSocket (c.Get (0), tid);
+    source->SetAllowBroadcast (true);
+    source->Connect (remote);
+    Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
+                                    Seconds (j+1), &GenerateTraffic_WSA,
+                                    source, wsa_packet, numPackets, interPacketInterval);
+    /**
+     * @brief this step is all OBUs send the BSM to RSU
+     * @details OBUs send the BSM packet according to itt based on csma and
+     * @details RSU receives the BSM packet using ReceivePacket_BSM function 
+     */
     uint16_t port = 9;
     NS_LOG_INFO ("Create Applications.");
     for(int i = 1; i <OBU_NODE + RSU_NODE ;i++)
     {
       OnOffHelper onoff ("ns3::UdpSocketFactory", 
                         Address (InetSocketAddress (Ipv4Address ("255.255.255.255"), port)));
-      // 10Kb/s , 125 => 0.1s
-      // 1Kb = 1000bit = 125 byte
-      // 16Kb = 16000bit = 2000 byte
       char itt[7];
       strcpy(itt,recv_itt_data.c_str());
       if(j!=0)
         onoff.SetConstantRate (DataRate (itt),BSM_PACKET_SIZE);
-
       else
         onoff.SetConstantRate (DataRate ("20Kb/s"),BSM_PACKET_SIZE);
-
       ApplicationContainer app = onoff.Install (c.Get (i));
-      // RSU가 측정하는 부분
       Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid);
       InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), port);
       recvSink->Bind (local);
@@ -446,17 +442,23 @@ int main (int argc, char *argv[])
       app.Start (Seconds (0.0001+j));
       app.Stop (Seconds (1.0001+j));
     }
-    // PVD Unicast code  
-    ns3::PacketMetadata::Enable (); // 이거 넣어줘야 실제 패킷 보내고 받을 때 오류 안생김
-    
+
+    /**
+     * @brief Construct a new ns3::Packet Metadata::Enable object
+     * @details Enable() must be set when sending real data in the packet.
+     */
+    ns3::PacketMetadata::Enable ();
+    /**
+     * @brief this step is the OBUs send the PVD to RSU
+     * @details OBUs send the PVD data every sec using GenerateTraffic_PVD function and 
+     * @details RSU receives the PVD using ReceivePacket_PVD function from OBUs
+     */
     for(int i=1; i<OBU_NODE+RSU_NODE; i++)
       {
         string PVD_message = "car_info";
         uint8_t PVD_buffer[15];
-        
         std::copy(PVD_message.begin(), PVD_message.end(), std::begin(PVD_buffer));
-
-        send_pvd_packet = Create<Packet> (PVD_buffer,8);
+        pvd_packet = Create<Packet> (PVD_buffer,8);
         InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), i+100);
         Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid);
         InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), i+100);
@@ -465,29 +467,23 @@ int main (int argc, char *argv[])
         Ptr<Socket> source = Socket::CreateSocket (c.Get (i), tid);
         source->SetAllowBroadcast (true);
         source->Connect (remote);
-        // NS_LOG_UNCOND (source->GetNode ()->GetId ());   
         Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
                                 Seconds (j+1+i/(OBU_NODE)), &GenerateTraffic_PVD,
-                                source, send_pvd_packet, numPackets, interPacketInterval);
+                                source, pvd_packet, numPackets, interPacketInterval);
       }
-
+    /**
+     * @brief Create trace file for WSA, PVD, and BSM
+     */
     AsciiTraceHelper ascii;
     csma.EnableAsciiAll (ascii.CreateFileStream ("WSA_example.tr"));
 
-    // Also configure some tcpdump traces; each interface will be traced
-    // The output files will be named
-    // csma-broadcast-<nodeId>-<interfaceId>.pcap
-    // and can be read by the "tcpdump -tt -r" command 
-
+    /**
+     * @brief Create animation file for WSA, PVD, and BSM
+     */
     NS_LOG_INFO ("Run Simulation.");
-
     AnimationInterface anim (animFile);
-
     uint32_t rsu_icon = anim.AddResource("/home/smsung/Pictures/Base.png");
     uint32_t bluecar_icon = anim.AddResource("/home/smsung/Pictures/bluecar.png");
-    // uint32_t greencar_icon = anim.AddResource("/home/smsung/Pictures/greencar.png");
-    // uint32_t redcar_icon = anim.AddResource("/home/smsung/Pictures/redcar.png");
-
     Ptr<Node> rsu = c.Get(0);
     anim.UpdateNodeImage(rsu->GetId(),rsu_icon);
     anim.UpdateNodeSize(0,3,3);
@@ -497,25 +493,15 @@ int main (int argc, char *argv[])
       Ptr<Node> greencar = c.Get(i);
       anim.UpdateNodeImage(greencar->GetId(),bluecar_icon);
     }
-    // for (int i=OBU_NODE/3; i<; i++)
-    // {
-    //   Ptr<Node> redcar = total_grp.Get(i);
-    //   anim.UpdateNodeImage(redcar->GetId(),redcar_icon);
-    // }
-    // for (int i=301; i<401; i++)
-    // {
-    //   Ptr<Node> bluecar = total_grp.Get(i);
-    //   anim.UpdateNodeImage(bluecar->GetId(),greencar_icon);
-    // }
-
     anim.SetMaxPktsPerTraceFile(500000);
+    /**
+     * @brief Construct a new Simulator:: Run object
+     * @details simulates the application sending BSM, WSA, and PVD
+     */
     Simulator::Run ();
     std::cout << "Animation Trace file created:" << animFile.c_str ()<< std::endl;
     Simulator::Destroy ();
 
   }
-  // std::cout << "What is the recv_itt_data: " << recv_itt_data << std::endl;
-  
-
   return 0;
 }
