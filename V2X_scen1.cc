@@ -146,6 +146,12 @@ void ReceivePacket_BSM (Ptr<Socket> socket)
           out << m_simulationTime << ","
               << m_cbr << ",";
           out.close();
+
+        /**
+         * @brief ITT is determined according to CBR
+         * @details Depending on the Qualcomm's report, C-V2X Congestion Control Study
+         * @details We decided the section of CBR and values of ITT as follows
+         */
           if(cbr!= 0 && cbr >100 && cbr<110) // 0.107
             {
               send_itt_data = "15Kb/s";
