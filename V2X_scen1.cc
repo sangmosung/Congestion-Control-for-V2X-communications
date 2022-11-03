@@ -1,34 +1,3 @@
-/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
-/*
- * Copyright (c) 2005,2006,2007 INRIA
- * Copyright (c) 2013 Dalian University of Technology
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received time_diff copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
- * Author: Junling Bu <linlinjavaer@gmail.com>
- *
- */
-/**
- * This example shows basic construction of an 802.11p node.  Two nodes
- * are constructed with 802.11p devices, and by default, one node sends time_diff single
- * packet to another node (the number of packets and interval between
- * them can be configured by command-line arguments).  The example shows
- * typical usage of the helper classes for this mode of WiFi (where "OCB" refers
- * to "Outside the Context of time_diff BSS")."
- */
-
 #include "ns3/vector.h"
 #include "ns3/string.h"
 #include "ns3/socket.h"
@@ -68,8 +37,8 @@ using std::to_string;
  * @brief RSU struct to find the transmission period in RSU
  * @param prev_time parameter to store the time when the first BSM arrived in one cycle
  * @param current_time parameter to store the time when the last BSM arrived in one cycle
- * @param arrival_num parameter to store arrived BSM number
- * @param start_time_num parameter to protect the reply attack
+ * @param arrival_num parameter to store number of arrived BSM and to be reset every 1 sec
+ * @param start_time_num parameter to evaluate the BSM start number
  */
 typedef struct {
   float prev_time = 0;
@@ -79,7 +48,7 @@ typedef struct {
 }RSU;
 /**
  * @brief WSA struct to store the time receiving WSA
- * @param time_wsa WSA time
+ * @param time_wsa parameter to evaluate the time of arrival of WSA
  */
 typedef struct {
   float time_wsa = 0;
@@ -93,17 +62,18 @@ typedef struct {
 #define BYTE_SIZE 8
 NS_LOG_COMPONENT_DEFINE ("WifiSimpleOcb");
 
-unsigned char recv_wsa_packet[100];
-unsigned char recv_pvd_packet[20];
-float time_diff;
-int number = 0;
-int j_copy =0;
-float ITT;
-float init_itt = 0.080;
-Ptr<Packet> wsa_packet;
-Ptr<Packet> pvd_packet;
-std::string recv_itt_data;
-std::string send_itt_data;
+unsigned char recv_wsa_packet[100]; // buffer to save the WSA packet message
+unsigned char recv_pvd_packet[100]; // buffer to save the PVD packet message
+float time_diff; // the time difference between the time the first node received the bsm and the time the last node gave the bsm
+int j_copy =0; // the number that equals the time the simulater runs and is updated every second.
+float ITT; // transmission time to send BSM
+float init_itt = 0.080; // initial transmission time
+Ptr<Packet> wsa_packet; // WSA Packet
+Ptr<Packet> pvd_packet; // PVD Packet
+std::string recv_itt_data; // string to save the ITT data
+std::string send_itt_data; // string to save the ITT data
+
+
 RSU rsu;
 WSA wsa;
 
@@ -319,7 +289,7 @@ int main (int argc, char *argv[])
   Time interPacketInterval = Seconds (interval);
 
   /**
-   * @brief Simulate every sec 
+   * @brief Simulate every sec from 0 sec to TOTAL_TIME
    */
   for(int j = 0 ; j<TOTAL_TIME; j++)
   {
@@ -400,12 +370,12 @@ int main (int argc, char *argv[])
         Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (k), tid);
         InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), 80);
         recvSink->Bind (local);
-        recvSink->SetRecvCallback (MakeCallback (&ReceivePacket_WSA));                                     
+        recvSink->SetRecvCallback (MakeCallback (&ReceivePacket_WSA));  // RSU receives the BSM according to ReceivePacket_WSA function                                   
       }
     float m_wsaReceiveTime = wsa.time_wsa;
     float m_itt = ITT;
     std::ofstream out;
-    out.open("V2X_variables2.csv", std::ios::app);
+    out.open("V2X_variables2.csv", std::ios::app);  // generates the csv file
     out << m_wsaReceiveTime << "," 
         << m_itt
         << std::endl;
@@ -414,9 +384,9 @@ int main (int argc, char *argv[])
     Ptr<Socket> source = Socket::CreateSocket (c.Get (0), tid);
     source->SetAllowBroadcast (true);
     source->Connect (remote);
-    Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
-                                    Seconds (j+1), &GenerateTraffic_WSA,
-                                    source, wsa_packet, numPackets, interPacketInterval);
+    Simulator::ScheduleWithContext (source->GetNode ()->GetId (),                     // OBUs send the WSA using GenerateTraffic_WSA function
+                                Seconds (j+1), &GenerateTraffic_WSA,                  // inputs of GenerateTraffic_PVD are source, wsa_packet
+                                source, wsa_packet, numPackets, interPacketInterval); // numPackets, and interPacketInterval
     /**
      * @brief this step is all OBUs send the BSM to RSU
      * @details OBUs send the BSM packet according to itt based on csma and
@@ -431,14 +401,14 @@ int main (int argc, char *argv[])
       char itt[7];
       strcpy(itt,recv_itt_data.c_str());
       if(j!=0)
-        onoff.SetConstantRate (DataRate (itt),BSM_PACKET_SIZE);
+        onoff.SetConstantRate (DataRate (itt),BSM_PACKET_SIZE); // transmission varies according to itt and BSM_PACKET_SIZE.
       else
-        onoff.SetConstantRate (DataRate ("20Kb/s"),BSM_PACKET_SIZE);
-      ApplicationContainer app = onoff.Install (c.Get (i));
-      Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid);
+        onoff.SetConstantRate (DataRate ("20Kb/s"),BSM_PACKET_SIZE); // initial transmission time
+      ApplicationContainer app = onoff.Install (c.Get (i)); // OBUs send the BSM using csma
+      Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid); // RSU is recv_socket
       InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), port);
       recvSink->Bind (local);
-      recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_BSM));
+      recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_BSM)); // RSU receives the BSM according to ReceivePacket_BSM function
       app.Start (Seconds (0.0001+j));
       app.Stop (Seconds (1.0001+j));
     }
@@ -458,24 +428,24 @@ int main (int argc, char *argv[])
         string PVD_message = "car_info";
         uint8_t PVD_buffer[15];
         std::copy(PVD_message.begin(), PVD_message.end(), std::begin(PVD_buffer));
-        pvd_packet = Create<Packet> (PVD_buffer,8);
+        pvd_packet = Create<Packet> (PVD_buffer,8); // packet to send the PVD from OBUs to RSU
         InetSocketAddress remote = InetSocketAddress (Ipv4Address ("255.255.255.255"), i+100);
         Ptr<Socket> recvSink = Socket::CreateSocket (c.Get (0), tid);
         InetSocketAddress local = InetSocketAddress (Ipv4Address("255.255.255.255"), i+100);
         recvSink->Bind (local);
-        recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_PVD));
+        recvSink->SetRecvCallback (MakeCallback(&ReceivePacket_PVD)); // RSU receives the PVD according to ReceivePacket_PVD function
         Ptr<Socket> source = Socket::CreateSocket (c.Get (i), tid);
         source->SetAllowBroadcast (true);
         source->Connect (remote);
-        Simulator::ScheduleWithContext (source->GetNode ()->GetId (),
-                                Seconds (j+1+i/(OBU_NODE)), &GenerateTraffic_PVD,
-                                source, pvd_packet, numPackets, interPacketInterval);
+        Simulator::ScheduleWithContext (source->GetNode ()->GetId (),                 // OBUs send the PVD using GenerateTraffic_PVD function
+                                Seconds (j+1+i/(OBU_NODE)), &GenerateTraffic_PVD,     // inputs of GenerateTraffic_PVD are source, pvd_packet
+                                source, pvd_packet, numPackets, interPacketInterval); // numPackets, and interPacketInterval
       }
     /**
      * @brief Create trace file for WSA, PVD, and BSM
      */
     AsciiTraceHelper ascii;
-    csma.EnableAsciiAll (ascii.CreateFileStream ("WSA_example.tr"));
+    csma.EnableAsciiAll (ascii.CreateFileStream ("V2X_congestion_control.tr"));
 
     /**
      * @brief Create animation file for WSA, PVD, and BSM
